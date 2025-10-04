@@ -4,7 +4,7 @@
 #define PROJET_POISSON_PAUSEDSCREEN_HPP
 
 
-class pauseScreen {
+class PauseScreen {
 private:
 
     SDL_Texture* logoImageTexture;
@@ -25,8 +25,8 @@ public:
     SDL_Rect buttonResumeTextPos;
     SDL_Rect buttonResumeBackPos;
 
-    pauseScreen(SDL_Renderer* renderer);
-    ~pauseScreen();
+    PauseScreen(SDL_Renderer* renderer);
+    ~PauseScreen();
 
     void draw(SDL_Renderer* renderer);
 

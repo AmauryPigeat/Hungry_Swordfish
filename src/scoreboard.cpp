@@ -1,4 +1,4 @@
-#include "Scoreboard.hpp"
+#include "scoreboard.hpp"
 
 using namespace std;
 

@@ -4,7 +4,7 @@
 #define PROJET_POISSON_WELCOMESCREEN_HPP
 
 
-class welcomeScreen {
+class WelcomeScreen {
 private:
     SDL_Texture* logoImageTexture;
     SDL_Texture* logoTextTexture;
@@ -28,8 +28,8 @@ public:
     SDL_Rect buttonQuitTextPos;
     SDL_Rect buttonQuitBackPos;
 
-    welcomeScreen(SDL_Renderer* renderer);
-    ~welcomeScreen();
+    WelcomeScreen(SDL_Renderer* renderer);
+    ~WelcomeScreen();
 
     void drawWelcomeScreen(SDL_Renderer* renderer);
 };

@@ -1,6 +1,6 @@
 #include "pauseScreen.hpp"
 
-pauseScreen::pauseScreen(SDL_Renderer *renderer) {
+PauseScreen::PauseScreen(SDL_Renderer *renderer) {
     SDL_Surface* logoImageSurface = IMG_Load(IMGPATH::logo);
     this->logoImageTexture = SDL_CreateTextureFromSurface(renderer, logoImageSurface);
     this->logoImagePos = {WINDOW_WIDTH/2 - logoImageSurface->w/8, 30, logoImageSurface->w/4, logoImageSurface->h/4};
@@ -32,7 +32,7 @@ pauseScreen::pauseScreen(SDL_Renderer *renderer) {
     SDL_FreeSurface(pauseTextSurface);
 }
 
-pauseScreen::~pauseScreen() {
+PauseScreen::~PauseScreen() {
     SDL_DestroyTexture(this->logoImageTexture);
     SDL_DestroyTexture(this->logoTextTexture);
     SDL_DestroyTexture(this->buttonBackgroundTexture);
@@ -41,7 +41,7 @@ pauseScreen::~pauseScreen() {
     SDL_DestroyTexture(this->pauseTextTexture);
 }
 
-void pauseScreen::draw(SDL_Renderer *renderer) {
+void PauseScreen::draw(SDL_Renderer *renderer) {
     SDL_RenderCopy(renderer, this->logoImageTexture, NULL, &this->logoImagePos);
     SDL_RenderCopy(renderer, this->logoTextTexture, NULL,&this->logoTextPos);
 

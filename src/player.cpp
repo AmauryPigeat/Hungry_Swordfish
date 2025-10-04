@@ -1,11 +1,10 @@
 #include "player.hpp"
 
 Player::Player(SDL_Renderer *renderer){
-    this->pos.x = WINDOW_WIDTH/2;
-    this->pos.y = WINDOW_HEIGHT/2;
-    this->pos.w = this->sizeW;
-    this->pos.h = this->sizeH;
     this->playerGifIter = 0;
+
+    this->pos = SDL_Rect(WINDOW_WIDTH/2, WINDOW_HEIGHT/2, this->sizeW, this->sizeH);
+    this->hitbox = SDL_Rect(this->pos.x + 10, this->pos.y, this->sizeW - 20, this->sizeH);
 
     this->scorePoint = 0;
     this->killCounter = 0;
@@ -61,12 +60,15 @@ void Player::drawPlayer(SDL_Renderer *renderer, int angle, bool moving){
     this->playerGifIter++;
     this->playerGifIter %= 16;
     SDL_RendererFlip flip;
+    this->hitbox = SDL_Rect(this->pos.x + 10, this->pos.y, this->sizeW - 20, this->sizeH);
     if(angle > 90){
         flip = SDL_FLIP_HORIZONTAL;
         angle = 0;
-    }
-    else{
+    } else{
         flip = SDL_FLIP_NONE;
+    }
+    if (angle ==  90 || angle == -90){
+        this->hitbox = SDL_Rect(this->pos.x + 10, this->pos.y, this->sizeH, this->sizeW - 20); // On réduit la taille du poisson, et on recentre
     }
     if(moving){
         SDL_RenderCopyEx(renderer, this->playerTextureWalk[this->playerGifIter/4],  NULL, &this->pos, angle, NULL, flip);
@@ -77,9 +79,10 @@ void Player::drawPlayer(SDL_Renderer *renderer, int angle, bool moving){
 }
 
 void Player::checkEveryColisions(BoidSimulation *simulation) {
-    SDL_Rect playerPos = SDL_Rect(simulation->camera.x + this->pos.x, simulation->camera.y + this->pos.y, this->sizeW, this->sizeH);
+    SDL_Rect boidPos;
     for (auto it = simulation->boids.begin(); it != simulation->boids.end(); ) {
-        if (SDL_HasIntersection(&playerPos, &it->pos)){
+        boidPos = SDL_Rect(it->pos.x - simulation->camera.x * 4, it->pos.y - simulation->camera.y * 4, it->pos.w, it->pos.h);
+        if (SDL_HasIntersection(&this->hitbox, &boidPos)){
             this->killCounter++;
             this->scorePoint += it->type + 1;
             // Supprime l'élément et met à jour l'itérateur

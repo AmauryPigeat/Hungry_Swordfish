@@ -2,25 +2,25 @@
 
 using namespace std;
 
-int main(int argc, char* argv[]) {
-
+int main(int argc, char** argv) {
+    int toReturn = 0;
     // Initialiser SDL
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) < 0) {
         cout << "Erreur d'initialisation de SDL: " << SDL_GetError() << endl;
         SDL_Quit();
-        return 1;
+        toReturn = 1;
     }
 
     if (IMG_Init(IMG_INIT_PNG) == 0) {
         cout << "Erreur d'initialisation des images PNG: " << SDL_GetError() << endl;
         SDL_Quit();
-        return 2;
+        toReturn = 2;
     }
 
     if (TTF_Init() == -1) {
         SDL_Log("TTF_Init Error: %s", TTF_GetError());
         SDL_Quit();
-        return 7;
+        toReturn = 7;
     }
 
     initFonts();
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
     if (window == nullptr) {
         cout << "Erreur de création de la fenêtre: " << SDL_GetError() << endl;
         SDL_Quit();
-        return 3;
+        toReturn = 3;
     }
 
     // Créer un renderer avec SDL_RENDERER_SOFTWARE
@@ -42,20 +42,20 @@ int main(int argc, char* argv[]) {
         cout << "Erreur de création du renderer: " << SDL_GetError() << endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
-        return 4;
+        toReturn = 4;
     }
 
     // Ajout du background
     SDL_Surface *backgroundSurface = IMG_Load(IMGPATH::background);
     if (backgroundSurface == nullptr) {
         cout << "Erreur de chargement background:" << SDL_GetError() << endl;
-        return 5;
+        toReturn = 5;
     }
 
     SDL_Texture *backgroundTexture = SDL_CreateTextureFromSurface(renderer, backgroundSurface);
     if (backgroundTexture == nullptr) {
         cout << "Erreur de création de texture background" << SDL_GetError() << endl;
-        return 6;
+        toReturn = 6;
     }
     SDL_FreeSurface(backgroundSurface);
 
@@ -67,16 +67,16 @@ int main(int argc, char* argv[]) {
     Player* player = new Player(renderer);
 
     Timer* timer = new Timer(renderer);
-    Uint32 lastUpdate = SDL_GetTicks();
+    Uint32 lastTimerUpdate = SDL_GetTicks();
     Scoreboard* scoreboard = new Scoreboard(renderer);
 
-    welcomeScreen* welcome = new welcomeScreen(renderer);
+    WelcomeScreen* welcome = new WelcomeScreen(renderer);
 
-    endScreen* finish = new endScreen(renderer);
+    EndScreen* finish = new EndScreen(renderer);
 
-    pauseScreen* pause = new pauseScreen(renderer);
+    PauseScreen* pause = new PauseScreen(renderer);
 
-    scoreScreen* score = new scoreScreen(renderer);
+    ScoreScreen* score = new ScoreScreen(renderer);
 
     SDL_Event event;
     SDL_Rect windowRect = SDL_Rect(0,0,WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -90,11 +90,14 @@ int main(int argc, char* argv[]) {
     bool running = true;
     int runningType = 0; // 0 = accueil / 1 = jeu / 2 = fin de la game / 3 = Menu pause / 4 = Menu score
     int iterSimu = 0;
+    Uint32 lastBoidUpdate = SDL_GetTicks();
+    Uint32 lastDeplacementUpdate = SDL_GetTicks();
     while (running){
         Uint32 debutFrameTimer = SDL_GetTicks();
+
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
-                // Toute cette partie va être envoyé dans une fonction, après finition de la V1 du jeu, lors de l'amélioration du code
+                // Toute cette partie devrait être envoyée dans une fonction, mais c'est galère avec les différents appels à l'intérieur
                 case SDL_QUIT:
                     running = false;
                     break;
@@ -127,8 +130,12 @@ int main(int argc, char* argv[]) {
                                 break;
 
                             default:
-                                if(timer->getTime() <= 60) {
-                                    checkDeplacement(renderer, simulation, player, event, &moving, &angle);
+                                if (timer->getTime() <= 60){
+                                    Uint32 currentDeplacementUpdateTimer = SDL_GetTicks();
+                                    if (currentDeplacementUpdateTimer >= lastDeplacementUpdate + UPDATE_DELAY){
+                                        checkDeplacement(renderer, simulation, player, event, &moving, &angle);
+                                        lastDeplacementUpdate = currentDeplacementUpdateTimer;
+                                    }
                                 }
                                 break;
                         }
@@ -165,30 +172,29 @@ int main(int argc, char* argv[]) {
                 moving = false;
                 SDL_StartTextInput(); // Lancer la prise en compte de la saisie de texte
             }
+            SDL_RenderClear(renderer);
             if(!nameAsked){
-                SDL_RenderClear(renderer);
                 SDL_RenderCopy(renderer, backgroundTexture, nullptr, nullptr);
                 player->drawAskName(renderer, tempName);
             } else {
+                //On évite les répétitions de code
+                SDL_RenderCopy(renderer, backgroundTexture, &simulation->camera, &windowRect);
+
+                Uint32 currentTimeBoid = SDL_GetTicks();
+                if (currentTimeBoid >= lastBoidUpdate + UPDATE_DELAY) { // ce test permet d'avoir 16ms entre chaque update pour que le jeu sois bien
+                    simulation->update(renderer);
+                    lastBoidUpdate = currentTimeBoid;
+                }
+                player->drawPlayer(renderer, angle, moving);
+                scoreboard->drawPlayerKillCount(renderer, player);
+                scoreboard->drawPlayerScore(renderer, player);
+
                 if(timer->getTime() > 60){ // Timer de démarage
-                    SDL_RenderClear(renderer);
-                    SDL_RenderCopy(renderer, backgroundTexture, &simulation->camera, &windowRect);
-                    simulation->update(renderer);
-                    player->drawPlayer(renderer, angle, moving);
-                    scoreboard->drawPlayerKillCount(renderer, player);
-                    scoreboard->drawPlayerScore(renderer, player);
-                    timer->drawStartTimer(renderer);
-                    // fonction de dessin du plus gros timer
+                    timer->drawStartTimer(renderer); // fonction de dessin du plus gros timer
                 } else {
-                    SDL_RenderClear(renderer);
-                    SDL_RenderCopy(renderer, backgroundTexture, &simulation->camera, &windowRect);
-                    simulation->update(renderer);
-                    player->drawPlayer(renderer, angle, moving);
                     player->checkEveryColisions(simulation);
                     simulation->respawnBoid();
                     timer->drawTimer(renderer);
-                    scoreboard->drawPlayerKillCount(renderer, player);
-                    scoreboard->drawPlayerScore(renderer, player);
 
                     movingReset++;
                     movingReset %= 4;
@@ -196,14 +202,13 @@ int main(int argc, char* argv[]) {
                         moving = false;
                     }
                 }
-
                 Uint32 currentTime = SDL_GetTicks();    // Temps actuel en millisecondes
-                if (currentTime > lastUpdate + 1000) {  // Si 1000 ms (1 seconde) se sont écoulées
+                if (currentTime > lastTimerUpdate + 1000) {  // Si 1000 ms (1 seconde) se sont écoulées
                     timer->decrementTimer();            // Incrémenter le timer
-                    lastUpdate = currentTime;           // Mettre à jour le dernier timestamp
+                    lastTimerUpdate = currentTime;           // Mettre à jour le dernier timestamp
                 }
 
-                if (timer->getTime() == 0) {
+                if (timer->getTime() <= 0) {
                     runningType = 2;
                     finish->enterScore(player);
                 }
@@ -232,7 +237,7 @@ int main(int argc, char* argv[]) {
             SDL_Delay(FRAME_DURATION - finFrameTimer); // on peut fixer à la vitesse que on veut, les fps seront constants
         }
         
-        // Présenter le rendu
+        // Afficher toute la fenêtre
         SDL_RenderPresent(renderer);
     }
 
@@ -244,7 +249,5 @@ int main(int argc, char* argv[]) {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    return 0;
+    return toReturn;
 }
-
-

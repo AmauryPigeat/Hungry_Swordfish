@@ -9,7 +9,7 @@ struct Score{
     int killCount;
 };
 
-class scoreScreen {
+class ScoreScreen {
 private:
     SDL_Texture* logoImageTexture;
     SDL_Texture* logoTextTexture;
@@ -36,8 +36,8 @@ public:
     SDL_Rect buttonHomeBackPos;
     SDL_Rect buttonDeleteBackPos;
 
-    scoreScreen(SDL_Renderer* renderer);
-    ~scoreScreen();
+    ScoreScreen(SDL_Renderer* renderer);
+    ~ScoreScreen();
 
 
     Score* getEveryScore();

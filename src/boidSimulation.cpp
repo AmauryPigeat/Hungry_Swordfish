@@ -118,13 +118,14 @@ BoidSimulation::~BoidSimulation(){
 }
 
 void BoidSimulation::drawBoidSurface(SDL_Renderer* renderer, Boid& boid){
-    if(boid.pos.x > (this->camera.x - 20) && boid.pos.x < (this->camera.x + WINDOW_WIDTH + 20)){
+    // On n'affiche pas les poissons qu'on ne peut pas voir (avec une marge)
+    if(boid.pos.x > (this->camera.x - 20) * 4 && boid.pos.x < (this->camera.x + CAMERA_WIDTH + 20) * 4){
         // séparation en 2 if (x et y) pour plus de lisibilité
-        if(boid.y > (this->camera.y - 20) && boid.y < (this->camera.y + WINDOW_HEIGHT + 20)){
+        if(boid.pos.y > (this->camera.y - 20) * 4 && boid.pos.y < (this->camera.y + CAMERA_HEIGHT + 20) * 4){
             boid.gifIter++;
             double angle = std::atan2(boid.vy, boid.vx) * (180.0 / M_PI); // angle de rotation en dégré (sens des aiguilles)
             SDL_RendererFlip flip;
-            SDL_Rect position = SDL_Rect(boid.pos.x - this->camera.x, boid.pos.y - this->camera.y, boid.sizeH, boid.sizeW);
+            SDL_Rect position = SDL_Rect(boid.pos.x - this->camera.x * 4, boid.pos.y - this->camera.y * 4, boid.sizeH, boid.sizeW);
             if(angle > 90.0 || angle < -90.0){
                 flip = SDL_FLIP_VERTICAL;
             }

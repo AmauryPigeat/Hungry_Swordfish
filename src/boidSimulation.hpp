@@ -4,7 +4,7 @@
 #include "constants.hpp"
 
 struct Boid {
-    int x, y;      // Position
+    __int16 x, y;      // Position
     float vx, vy; // Vitesse
     SDL_Rect pos;
     /*
@@ -36,7 +36,7 @@ private:
     const float turnFactor = 0.2;
     const float minSpeed = 2.0;
     const float maxSpeed = 6.0;
-    const unsigned int boidQuantity = 100;
+    const unsigned int boidQuantity = 1000;
 
 public:
     std::vector<Boid> boids;

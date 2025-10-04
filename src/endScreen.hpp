@@ -5,7 +5,7 @@
 #define PROJET_POISSON_ENDSCREEN_HPP
 
 
-class endScreen {
+class EndScreen {
 private:
 
     SDL_Texture* logoImageTexture;
@@ -34,8 +34,8 @@ public:
     SDL_Rect buttonReStartBackPos;
     SDL_Rect buttonHomeBackPos;
 
-    endScreen(SDL_Renderer* renderer);
-    ~endScreen();
+    EndScreen(SDL_Renderer* renderer);
+    ~EndScreen();
 
     void draw(SDL_Renderer* renderer, Player* player);
     void createScoreFile();

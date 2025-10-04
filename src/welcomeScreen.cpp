@@ -1,6 +1,6 @@
 #include "welcomeScreen.hpp"
 
-welcomeScreen::welcomeScreen(SDL_Renderer* renderer) {
+WelcomeScreen::WelcomeScreen(SDL_Renderer* renderer) {
     SDL_Surface* logoImageSurface = IMG_Load(IMGPATH::logo);
     this->logoImageTexture = SDL_CreateTextureFromSurface(renderer, logoImageSurface);
     this->logoImagePos = {WINDOW_WIDTH/2 - logoImageSurface->w/8, 30, logoImageSurface->w/4, logoImageSurface->h/4};
@@ -35,7 +35,7 @@ welcomeScreen::welcomeScreen(SDL_Renderer* renderer) {
     SDL_FreeSurface(buttonBackgroundSurface);
 }
 
-welcomeScreen::~welcomeScreen() {
+WelcomeScreen::~WelcomeScreen() {
     SDL_DestroyTexture(this->logoTextTexture);
     SDL_DestroyTexture(this->logoImageTexture);
 
@@ -46,7 +46,7 @@ welcomeScreen::~welcomeScreen() {
     SDL_DestroyTexture(this->quitButtonTextTexture);
 }
 
-void welcomeScreen::drawWelcomeScreen(SDL_Renderer *renderer) {
+void WelcomeScreen::drawWelcomeScreen(SDL_Renderer *renderer) {
     SDL_RenderCopy(renderer, this->logoTextTexture, NULL, &this->logoTextPos);
     SDL_RenderCopy(renderer, this->logoImageTexture, NULL, &this->logoImagePos);
     // Bouton Start

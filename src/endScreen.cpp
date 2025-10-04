@@ -1,6 +1,6 @@
 #include "endScreen.hpp"
 
-endScreen::endScreen(SDL_Renderer* renderer){
+EndScreen::EndScreen(SDL_Renderer* renderer){
     SDL_Surface* logoImageSurface = IMG_Load(IMGPATH::logo);
     this->logoImageTexture = SDL_CreateTextureFromSurface(renderer, logoImageSurface);
     this->logoImagePos = {WINDOW_WIDTH/2 - logoImageSurface->w/8, 30, logoImageSurface->w/4, logoImageSurface->h/4};
@@ -35,7 +35,7 @@ endScreen::endScreen(SDL_Renderer* renderer){
     SDL_FreeSurface(buttonBackgroundSurface);
 }
 
-endScreen::~endScreen() {
+EndScreen::~EndScreen() {
     SDL_DestroyTexture(this->logoImageTexture);
     SDL_DestroyTexture(this->logoTextTexture);
     SDL_DestroyTexture(this->buttonBackgroundTexture);
@@ -46,7 +46,7 @@ endScreen::~endScreen() {
     SDL_DestroyTexture(this->scoreTextTexture);
 }
 
-void endScreen::draw(SDL_Renderer *renderer, Player *player) {
+void EndScreen::draw(SDL_Renderer *renderer, Player *player) {
     // Affichage du logo
     SDL_RenderCopy(renderer, this->logoImageTexture, NULL, &this->logoImagePos);
     SDL_RenderCopy(renderer, this->logoTextTexture, NULL,&this->logoTextPos);
@@ -79,7 +79,7 @@ void endScreen::draw(SDL_Renderer *renderer, Player *player) {
     SDL_RenderCopy(renderer, this->quitButtonTextTexture, NULL, &this->buttonQuitTextPos);
 }
 
-void endScreen::createScoreFile() {
+void EndScreen::createScoreFile() {
     std::string nomFichier = "scoreDB.txt";
 
     // Création du fichier
@@ -91,7 +91,7 @@ void endScreen::createScoreFile() {
     }
 }
 
-void endScreen::enterScore(Player *player) {
+void EndScreen::enterScore(Player *player) {
     std::string nomFichier = "scoreDB.txt";
 
     if(!std::filesystem::exists(nomFichier)){

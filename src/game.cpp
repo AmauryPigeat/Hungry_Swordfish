@@ -96,7 +96,7 @@ void checkDeplacement(SDL_Renderer* renderer, BoidSimulation* simulation, Player
     }
 }
 
-void checkClick(welcomeScreen* welcome, SDL_Event event, int* runningType, endScreen* finish, pauseScreen* pause, scoreScreen* score){
+void checkClick(WelcomeScreen* welcome, SDL_Event event, int* runningType, EndScreen* finish, PauseScreen* pause, ScoreScreen* score){
     int x = event.button.x; // Position X du clic
     int y = event.button.y;
     // Check bouton start

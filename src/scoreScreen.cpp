@@ -1,6 +1,6 @@
 #include "scoreScreen.hpp"
 
-scoreScreen::scoreScreen(SDL_Renderer* renderer){
+ScoreScreen::ScoreScreen(SDL_Renderer* renderer){
     SDL_Surface* logoImageSurface = IMG_Load(IMGPATH::logo);
     this->logoImageTexture = SDL_CreateTextureFromSurface(renderer, logoImageSurface);
     this->logoImagePos = {WINDOW_WIDTH/2 - logoImageSurface->w/12, 30, logoImageSurface->w/6, logoImageSurface->h/6};
@@ -43,7 +43,7 @@ scoreScreen::scoreScreen(SDL_Renderer* renderer){
 
 }
 
-scoreScreen::~scoreScreen() {
+ScoreScreen::~ScoreScreen() {
     SDL_DestroyTexture(this->logoImageTexture);
     SDL_DestroyTexture(this->logoTextTexture);
     SDL_DestroyTexture(this->buttonBackgroundTexture);
@@ -54,7 +54,7 @@ scoreScreen::~scoreScreen() {
     SDL_DestroyTexture(this->mainTextTexture);
 }
 
-Score* scoreScreen::getEveryScore() {
+Score* ScoreScreen::getEveryScore() {
     Score* scoresList = new Score[10];
     std::string nomFichier = "scoreDB.txt";
     std::ifstream fichier(nomFichier, std::ios::in);
@@ -72,7 +72,7 @@ Score* scoreScreen::getEveryScore() {
     return scoresList;
 }
 
-void scoreScreen::draw(SDL_Renderer *renderer) {
+void ScoreScreen::draw(SDL_Renderer *renderer) {
     // Affichage du logo
     SDL_RenderCopy(renderer, this->logoImageTexture, NULL, &this->logoImagePos);
     SDL_RenderCopy(renderer, this->logoTextTexture, NULL,&this->logoTextPos);
@@ -121,7 +121,7 @@ void scoreScreen::draw(SDL_Renderer *renderer) {
 
 }
 
-void scoreScreen::deleteScore() {
+void ScoreScreen::deleteScore() {
     // On supprime et on recréer le fichier
     const char* nomFichier = "scoreDB.txt"; // char* et non std::string car on utilise une fonction de C après
 

@@ -15,6 +15,7 @@ private:
     std::string name;
 public:
     SDL_Rect pos;
+    SDL_Rect hitbox;
     SDL_Texture* playerTextureWalk[4];
     SDL_Texture* playerTextureIdle[4];
 
