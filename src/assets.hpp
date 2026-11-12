@@ -21,6 +21,7 @@ public:
     TexturePtr logo;
     TexturePtr button;
     TexturePtr deleteButton;
+    TexturePtr bonusBubble;
 
     Animation playerSwim;
     Animation playerIdle;

@@ -5,6 +5,8 @@
 namespace {
 
 constexpr int hudMargin = 10;
+constexpr int dashGaugeWidth = 120;
+constexpr int dashGaugeHeight = 12;
 
 // Sens demandé par le joueur : flèches ou ZQSD.
 // Les scancodes désignent la position physique des touches : SDL_SCANCODE_W
@@ -31,10 +33,19 @@ PlayingScreen::PlayingScreen(GameContext& context)
       kills_(context.renderer, context.assets.mediumFont.get(), config::white),
       score_(context.renderer, context.assets.mediumFont.get(), config::white),
       timer_(context.renderer, context.assets.mediumFont.get(), config::white),
-      countdown_(context.renderer, context.assets.largeFont.get(), config::red) {}
+      countdown_(context.renderer, context.assets.largeFont.get(), config::red),
+      sprintEffect_(context.renderer, context.assets.smallFont.get(), config::sprintBonusColor),
+      doubleScoreEffect_(context.renderer, context.assets.smallFont.get(),
+                         config::scoreBonusColor),
+      dashLabel_(context.renderer, context.assets.smallFont.get(), config::white, "DASH") {}
 
 void PlayingScreen::handleEvent(const SDL_Event& event) {
     Screen::handleEvent(event);
+
+    if (event.type == SDL_KEYDOWN && event.key.keysym.scancode == SDL_SCANCODE_SPACE &&
+        event.key.repeat == 0) {
+        dashPressed_ = true;
+    }
 
     const bool escapePressed =
         event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE && event.key.repeat == 0;
@@ -47,7 +58,10 @@ void PlayingScreen::handleEvent(const SDL_Event& event) {
 
 void PlayingScreen::update(float dt) {
     GameSession& session = context_.session;
-    session.update(dt, readDirection());
+    // L'appui est consommé par ce tick : il ne déclenche qu'un seul dash,
+    // et il est perdu s'il tombe pendant le décompte.
+    session.update(dt, {readDirection(), dashPressed_});
+    dashPressed_ = false;
 
     if (session.isOver()) {
         context_.highScores.add({session.playerName(), session.kills(), session.score()});
@@ -64,6 +78,19 @@ void PlayingScreen::draw() {
     kills_.draw(hudMargin, hudMargin);
     score_.draw(hudMargin, hudMargin + kills_.height());
 
+    // Effets de bonus actifs, sous le score.
+    int effectY = hudMargin + kills_.height() + score_.height();
+    if (session.sprintTimeLeft() > 0.0f) {
+        sprintEffect_.set("SPRINT " + std::to_string(secondsToDisplay(session.sprintTimeLeft())));
+        sprintEffect_.draw(hudMargin, effectY);
+        effectY += sprintEffect_.height();
+    }
+    if (session.doubleScoreTimeLeft() > 0.0f) {
+        doubleScoreEffect_.set("SCORE x" + std::to_string(config::scoreMultiplier) + " " +
+                               std::to_string(secondsToDisplay(session.doubleScoreTimeLeft())));
+        doubleScoreEffect_.draw(hudMargin, effectY);
+    }
+
     if (session.inCountdown()) {
         dimScreen();
         countdown_.set(std::to_string(secondsToDisplay(session.countdown())));
@@ -73,5 +100,27 @@ void PlayingScreen::draw() {
         timer_.set(std::to_string(seconds));
         timer_.setColor(seconds < config::lowTimeThreshold ? config::red : config::white);
         timer_.drawRightAligned(config::windowWidth - hudMargin, hudMargin);
+        drawDashGauge();
     }
+}
+
+// Barre en bas à gauche : se remplit pendant la recharge, passe en vert quand le dash est prêt.
+void PlayingScreen::drawDashGauge() const {
+    SDL_Renderer* renderer = context_.renderer;
+    const float readiness = context_.session.dashReadiness();
+
+    const int barY = config::windowHeight - hudMargin - dashGaugeHeight;
+    dashLabel_.draw(hudMargin, barY - dashLabel_.height() - 4);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    const SDL_Rect background{hudMargin, barY, dashGaugeWidth, dashGaugeHeight};
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, config::dimOpacity);
+    SDL_RenderFillRect(renderer, &background);
+
+    const SDL_Color fill = readiness >= 1.0f ? config::mint : config::white;
+    const SDL_Rect filled{hudMargin, barY,
+                          static_cast<int>(static_cast<float>(dashGaugeWidth) * readiness),
+                          dashGaugeHeight};
+    SDL_SetRenderDrawColor(renderer, fill.r, fill.g, fill.b, fill.a);
+    SDL_RenderFillRect(renderer, &filled);
 }

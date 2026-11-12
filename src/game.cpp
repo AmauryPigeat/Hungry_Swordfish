@@ -38,7 +38,7 @@ Game::Game()
     : window_(createWindow()),
       renderer_(createRenderer(window_.get())),
       assets_(renderer_.get()),
-      session_(assets_),
+      session_(renderer_.get(), assets_),
       highScores_(executableDirectory() / config::scoreFileName),
       context_{renderer_.get(), assets_, session_, highScores_} {
     const auto addScreen = [this](ScreenId id, std::unique_ptr<Screen> screen) {

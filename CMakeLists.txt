@@ -21,6 +21,7 @@ add_executable(hungry_swordfish
     src/gameSession.cpp
     src/player.cpp
     src/boidSimulation.cpp
+    src/bonuses.cpp
     src/assets.cpp
     src/sdlUtils.cpp
     src/text.cpp

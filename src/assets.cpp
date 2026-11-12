@@ -34,6 +34,7 @@ Assets::Assets(SDL_Renderer* renderer) {
     logo = loadTexture(renderer, images / "swordfish_game_logo.png");
     button = loadTexture(renderer, images / "button_background.png");
     deleteButton = loadTexture(renderer, images / "button_delete_background.png");
+    bonusBubble = loadTexture(renderer, images / "bonus_bubble.png");
 
     playerSwim = loadAnimation(renderer, images / "Walk_player", "Walk_player");
     playerIdle = loadAnimation(renderer, images / "Idle_player", "Idle_player");

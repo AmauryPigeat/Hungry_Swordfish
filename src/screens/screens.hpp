@@ -32,15 +32,22 @@ private:
 class PlayingScreen : public Screen {
 public:
     explicit PlayingScreen(GameContext& context);
+    void onEnter() override { dashPressed_ = false; }  // pas de dash fantôme après une pause
     void handleEvent(const SDL_Event& event) override;
     void update(float dt) override;
     void draw() override;
 
 private:
+    void drawDashGauge() const;
+
+    bool dashPressed_ = false;  // appui sur Espace pas encore transmis à la partie
     Text kills_;
     Text score_;
     Text timer_;
     Text countdown_;
+    Text sprintEffect_;
+    Text doubleScoreEffect_;
+    Text dashLabel_;
 };
 
 // Pause : la partie reste visible, figée, derrière le menu.
@@ -66,7 +73,7 @@ private:
     Text kills_;
 };
 
-// Les dernières parties jouées.
+// Classement des meilleures parties, en tableau.
 class ScoresScreen : public Screen {
 public:
     explicit ScoresScreen(GameContext& context);
@@ -74,9 +81,19 @@ public:
     void draw() override;
 
 private:
-    void refreshLines();
+    // Une ligne du tableau : un texte par colonne, pour pouvoir les aligner.
+    struct Row {
+        Text rank;
+        Text name;
+        Text score;
+        Text kills;
+    };
+
+    void refreshRows();
+    void drawRow(const Row& row, int y) const;
 
     Text heading_;
     Text emptyMessage_;
-    std::vector<Text> lines_;
+    Row header_;
+    std::vector<Row> rows_;
 };

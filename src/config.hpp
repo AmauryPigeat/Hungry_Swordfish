@@ -35,8 +35,25 @@ inline constexpr float playerAcceleration = 10.0f;  // plus c'est grand, plus il
 inline constexpr float playerAnimationFps = 10.0f;
 inline constexpr float playerHitboxSize = 50.0f;
 
+// Dash (touche Espace) : courte poussée, puis temps de recharge
+inline constexpr float dashSpeedMultiplier = 2.5f;
+inline constexpr float dashDuration = 0.25f;
+inline constexpr float dashCooldown = 2.0f;  // compté depuis le début du dash
+
+// Croissance : l'espadon grossit à chaque poisson mangé (sprite et hitbox)
+inline constexpr float playerGrowthPerKill = 0.008f;  // +0,8 % de taille par poisson
+inline constexpr float playerMaxScale = 1.8f;
+
 // Poissons
 inline constexpr std::size_t fishCount = 1000;
+
+// Bonus ramassables
+inline constexpr std::size_t bonusCount = 6;  // présents en même temps dans le monde
+inline constexpr float bonusSize = 48.0f;
+inline constexpr float bonusEffectDuration = 5.0f;  // sprint et score x2
+inline constexpr float bonusExtraTime = 5.0f;       // secondes ajoutées au chrono
+inline constexpr float sprintMultiplier = 1.5f;
+inline constexpr int scoreMultiplier = 2;
 
 // Scores
 inline constexpr std::size_t maxNameLength = 16;
@@ -49,6 +66,12 @@ inline constexpr int buttonHeight = 64;
 inline constexpr SDL_Color white{255, 255, 255, 255};
 inline constexpr SDL_Color mint{168, 255, 209, 255};
 inline constexpr SDL_Color red{200, 50, 50, 255};
+inline constexpr SDL_Color timeBonusColor{230, 120, 0, 255};
+inline constexpr SDL_Color sprintBonusColor{20, 60, 160, 255};
+inline constexpr SDL_Color scoreBonusColor{170, 0, 120, 255};
+inline constexpr SDL_Color gold{255, 205, 60, 255};  // podium de l'écran des scores
+inline constexpr SDL_Color silver{205, 215, 225, 255};
+inline constexpr SDL_Color bronze{215, 140, 75, 255};
 inline constexpr Uint8 dimOpacity = 200;  // assombrissement (pause, décompte)
 
 }  // namespace config
