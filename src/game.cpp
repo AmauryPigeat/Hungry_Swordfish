@@ -1,178 +1,128 @@
 #include "game.hpp"
 
-void checkDeplacement(SDL_Renderer* renderer, BoidSimulation* simulation, Player* player, SDL_Event event, bool* moving, int* angle){
-    switch (event.key.keysym.sym) {
-        case SDLK_UP:
-            if(player->pos.y - CAMERA_SPEED*2 <= 0){
-                player->pos.y = 0;
-            }
+#include "config.hpp"
+#include "screens/screens.hpp"
 
-            if((simulation->camera.y == 0 && player->pos.y - CAMERA_SPEED*2 > 0) || (simulation->camera.y == ENV_HEIGHT - CAMERA_HEIGHT && player->pos.y > WINDOW_HEIGHT/2)){
-                player->pos.y -= CAMERA_SPEED*2;
-            }
-            else if(simulation->camera.y - CAMERA_SPEED > 0){
-                simulation->camera.y -= CAMERA_SPEED;
-                player->pos.y = WINDOW_HEIGHT/2;
-            }
-            else{
-                simulation->camera.y = 0;
-            }
-            // Gestion de l'angle de déplacement
-            if(player->pos.y > 0){
-                *angle = -90;
-            } else{
-                *angle = 0;
-            }
-            *moving = true;
-            break;
-        case SDLK_DOWN:
-            // Déplacer la caméra vers le bas
-            if(player->pos.y + CAMERA_SPEED*2 >= WINDOW_HEIGHT){
-                player->pos.y = WINDOW_HEIGHT - player->pos.h;
-            }
+#include <algorithm>
 
-            if((player->pos.y < WINDOW_HEIGHT/2 && simulation->camera.y == 0) || (simulation->camera.y == ENV_HEIGHT - CAMERA_HEIGHT && player->pos.y != WINDOW_HEIGHT - player->pos.h)){
-                player->pos.y += CAMERA_SPEED*2;
-            }
-            else if(simulation->camera.y + CAMERA_HEIGHT + CAMERA_SPEED < ENV_HEIGHT) { // limite bas
-                simulation->camera.y += CAMERA_SPEED;
-                player->pos.y = WINDOW_HEIGHT/2;
-            }
-            else{
-                simulation->camera.y = ENV_HEIGHT - CAMERA_HEIGHT;
-                if(player->pos.y + CAMERA_SPEED*2 < WINDOW_HEIGHT - player->pos.h) {
-                    player->pos.y += CAMERA_SPEED*2;
-                }
-            }
+namespace {
 
-            if(player->pos.y == WINDOW_HEIGHT - player->pos.h){
-                *angle = 0;
-            }
-            else{
-                *angle = 90;
-            }
-            *moving = true;
-            break;
-        case SDLK_LEFT:
-            if(player->pos.x - CAMERA_SPEED*2 <= 0){
-                player->pos.x = 0;
-            }
-            if(simulation->camera.x == 0 || (simulation->camera.x == ENV_WIDTH - CAMERA_WIDTH && player->pos.x > WINDOW_WIDTH/2)){
-                player->pos.x -= CAMERA_SPEED*2;
-            }
-            else if(simulation->camera.x - CAMERA_SPEED > 0){
-                simulation->camera.x -= CAMERA_SPEED;
-                player->pos.x = WINDOW_WIDTH/2;
-            }
-            else{
-                simulation->camera.x = 0;
-            }
-            if(player->pos.x > 0){
-                *angle = 180;
-            }
-            else{
-                *angle = 0;
-            }
-            *moving = true;
-            break;
-        case SDLK_RIGHT:
-            *angle = 0; // la position d'origine du poisson regarde à droite, il n'y a pas d'angle à gérer ici
-            if(player->pos.x + CAMERA_SPEED*2 >= WINDOW_WIDTH - player->pos.w){
-                player->pos.x = WINDOW_WIDTH - player->pos.w;
-            }
+WindowPtr createWindow() {
+    WindowPtr window(SDL_CreateWindow(config::windowTitle, SDL_WINDOWPOS_CENTERED,
+                                      SDL_WINDOWPOS_CENTERED, config::windowWidth,
+                                      config::windowHeight, SDL_WINDOW_RESIZABLE));
+    if (!window) {
+        throw SdlError("Création de la fenêtre impossible");
+    }
+    return window;
+}
 
-            if((simulation->camera.x == 0 && player->pos.x < WINDOW_WIDTH/2) || (simulation->camera.x == ENV_WIDTH - CAMERA_WIDTH && player->pos.x + CAMERA_SPEED*2 <= WINDOW_WIDTH - player->pos.w)){
-                player->pos.x += CAMERA_SPEED*2;
-            }
-            else if(simulation->camera.x + CAMERA_SPEED < ENV_WIDTH - CAMERA_WIDTH){
-                simulation->camera.x += CAMERA_SPEED;
-                player->pos.x = WINDOW_WIDTH/2;
-            }
-            else{
-                simulation->camera.x = ENV_WIDTH - CAMERA_WIDTH;
-            }
-            *moving = true;
-            break;
+RendererPtr createRenderer(SDL_Window* window) {
+    // VSync : l'affichage suit l'écran (60, 144 Hz...) sans réglage à faire.
+    // SDL choisit de lui-même le meilleur renderer disponible (accéléré si possible).
+    RendererPtr renderer(SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC));
+    if (!renderer) {
+        renderer.reset(SDL_CreateRenderer(window, -1, 0));  // dernier recours, sans VSync
+    }
+    if (!renderer) {
+        throw SdlError("Création du renderer impossible");
+    }
+    // Le jeu dessine toujours en 1280x720, SDL adapte à la taille réelle de la fenêtre.
+    SDL_RenderSetLogicalSize(renderer.get(), config::windowWidth, config::windowHeight);
+    return renderer;
+}
+
+}  // namespace
+
+Game::Game()
+    : window_(createWindow()),
+      renderer_(createRenderer(window_.get())),
+      assets_(renderer_.get()),
+      session_(assets_),
+      highScores_(executableDirectory() / config::scoreFileName),
+      context_{renderer_.get(), assets_, session_, highScores_} {
+    const auto addScreen = [this](ScreenId id, std::unique_ptr<Screen> screen) {
+        screens_[static_cast<std::size_t>(id)] = std::move(screen);
+    };
+    addScreen(ScreenId::Welcome, std::make_unique<WelcomeScreen>(context_));
+    addScreen(ScreenId::NameEntry, std::make_unique<NameEntryScreen>(context_));
+    addScreen(ScreenId::Playing, std::make_unique<PlayingScreen>(context_));
+    addScreen(ScreenId::Paused, std::make_unique<PausedScreen>(context_));
+    addScreen(ScreenId::GameOver, std::make_unique<GameOverScreen>(context_));
+    addScreen(ScreenId::Scores, std::make_unique<ScoresScreen>(context_));
+
+    SDL_StopTextInput();  // activé par défaut sur PC, seul l'écran du pseudo en a besoin
+    currentScreen().onEnter();
+    lastFrameTime_ = SDL_GetPerformanceCounter();
+}
+
+void Game::run() {
+    while (running_) {
+        runFrame();
     }
 }
 
-void checkClick(WelcomeScreen* welcome, SDL_Event event, int* runningType, EndScreen* finish, PauseScreen* pause, ScoreScreen* score){
-    int x = event.button.x; // Position X du clic
-    int y = event.button.y;
-    // Check bouton start
-    if(*runningType == 0) {
-        if (x >= welcome->buttonStartBackPos.x && x <= welcome->buttonStartBackPos.x + welcome->buttonStartBackPos.w) {
-            if (y >= welcome->buttonStartBackPos.y &&
-                y <= welcome->buttonStartBackPos.y + welcome->buttonStartBackPos.h) {
-                *runningType = 1;
-                return;
-            }
-        }
-        if (x >= welcome->buttonScoreBackPos.x && x <= welcome->buttonScoreBackPos.x + welcome->buttonScoreBackPos.w) {
-            if (y >= welcome->buttonScoreBackPos.y &&
-                y <= welcome->buttonScoreBackPos.y + welcome->buttonScoreBackPos.h) {
-                *runningType = 4;
-                return;
-            }
-        }
-        if (x >= welcome->buttonQuitBackPos.x && x <= welcome->buttonQuitBackPos.x + welcome->buttonQuitBackPos.w) {
-            if (y >= welcome->buttonQuitBackPos.y && y <= welcome->buttonQuitBackPos.y + welcome->buttonQuitBackPos.h) {
-                *runningType = -1;
-                return;
-            }
-        }
+void Game::runFrame() {
+    // Temps écoulé depuis l'image précédente.
+    const Uint64 now = SDL_GetPerformanceCounter();
+    const float elapsed = static_cast<float>(now - lastFrameTime_) /
+                          static_cast<float>(SDL_GetPerformanceFrequency());
+    lastFrameTime_ = now;
+
+    handleEvents();
+
+    // La logique avance par pas fixes de tickDuration, autant de fois que nécessaire
+    // pour rattraper le temps réel : le jeu va à la même vitesse à 30 comme à 240 FPS.
+    // Le plafond évite de simuler d'un coup une longue interruption (fenêtre déplacée...).
+    timeToSimulate_ = std::min(timeToSimulate_ + elapsed, 0.25f);
+    while (running_ && timeToSimulate_ >= config::tickDuration) {
+        currentScreen().update(config::tickDuration);
+        applyScreenRequest();
+        timeToSimulate_ -= config::tickDuration;
     }
-    if(*runningType == 2){
-        if(x >= finish->buttonReStartBackPos.x && x <= finish->buttonReStartBackPos.x + finish->buttonReStartBackPos.w){
-            if(y >= finish->buttonReStartBackPos.y && y <= finish->buttonReStartBackPos.y + finish->buttonReStartBackPos.h){
-                *runningType = 1;
-                return ;
-            }
-        }
-        if(x >= finish->buttonHomeBackPos.x && x <= finish->buttonHomeBackPos.x + finish->buttonHomeBackPos.w){
-            if(y >= finish->buttonHomeBackPos.y && y <= finish->buttonHomeBackPos.y + finish->buttonHomeBackPos.h){
-                *runningType = 0;
-            }
-        }
-        if(x >= finish->buttonQuitBackPos.x && x <= finish->buttonQuitBackPos.x + finish->buttonQuitBackPos.w){
-            if(y >= finish->buttonHomeBackPos.y && y <= finish->buttonQuitBackPos.y + finish->buttonQuitBackPos.h){
-                *runningType = -1;
-            }
-        }
+
+    if (running_) {
+        SDL_SetRenderDrawColor(renderer_.get(), 0, 0, 0, 255);
+        SDL_RenderClear(renderer_.get());
+        currentScreen().draw();
+        SDL_RenderPresent(renderer_.get());
     }
-    if(*runningType == 3){
-        if(x >= pause->buttonQuitBackPos.x && x <= pause->buttonQuitBackPos.x + pause->buttonQuitBackPos.w){
-            if(y >= pause->buttonQuitBackPos.y && y <= pause->buttonQuitBackPos.y + pause->buttonQuitBackPos.h){
-                *runningType = -1;
-                return ;
-            }
-        }
-        if(x >= pause->buttonResumeBackPos.x && x <= pause->buttonResumeBackPos.x + pause->buttonResumeBackPos.w){
-            if(y >= pause->buttonResumeBackPos.y && y <= pause->buttonResumeBackPos.y + pause->buttonResumeBackPos.h){
-                *runningType = 1;
-                return ;
-            }
-        }
-    }
-    if(*runningType == 4){
-        if(x >= score->buttonHomeBackPos.x && x <= score->buttonHomeBackPos.x + score->buttonHomeBackPos.w){
-            if(y >= score->buttonHomeBackPos.y && y <= score->buttonHomeBackPos.y + score->buttonHomeBackPos.h){
-                *runningType = 0;
-                return ;
-            }
-        }
-        if(x >= score->buttonDeleteBackPos.x && x <= score->buttonDeleteBackPos.x + score->buttonDeleteBackPos.w){
-            if(y >= score->buttonDeleteBackPos.y && y <= score->buttonDeleteBackPos.y + score->buttonDeleteBackPos.h){
-                score->deleteScore();
-                return ;
-            }
-        }
-        if(x >= score->buttonQuitBackPos.x && x <= score->buttonQuitBackPos.x + score->buttonQuitBackPos.w){
-            if(y >= score->buttonQuitBackPos.y && y <= score->buttonQuitBackPos.y + score->buttonQuitBackPos.w){
-                *runningType = -1;
-                return ;
-            }
+
+    // Laisse souffler le processeur si la VSync n'est pas disponible.
+    SDL_Delay(1);
+}
+
+void Game::handleEvents() {
+    SDL_Event event;
+    while (running_ && SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            running_ = false;
+        } else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11 &&
+                   event.key.repeat == 0) {
+            toggleFullscreen();
+        } else {
+            currentScreen().handleEvent(event);
+            applyScreenRequest();
         }
     }
 }
 
+void Game::applyScreenRequest() {
+    const std::optional<ScreenId> requested = currentScreen().takeRequestedScreen();
+    if (!requested) {
+        return;
+    }
+
+    currentScreen().onLeave();
+    if (*requested == ScreenId::Quit) {
+        running_ = false;
+        return;
+    }
+    current_ = *requested;
+    currentScreen().onEnter();
+}
+
+void Game::toggleFullscreen() {
+    const bool fullscreen = (SDL_GetWindowFlags(window_.get()) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
+    SDL_SetWindowFullscreen(window_.get(), fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
+}

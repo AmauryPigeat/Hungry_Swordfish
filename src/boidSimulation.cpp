@@ -1,171 +1,198 @@
 #include "boidSimulation.hpp"
 
-void BoidSimulation::update(SDL_Renderer *renderer) {
-    double visualRangeSquared = visualRange * visualRange;
-    double protectedRangeSquared = protectedRange * protectedRange;
 
-    for (Boid &boid: boids) {
-        double xposAvg = 0, yposAvg = 0, xvelAvg = 0, yvelAvg = 0;
-        double closeDx = 0, closeDy = 0;
-        int neighboringBoids = 0;
+#include <algorithm>
+#include <cmath>
 
-        for (const Boid &other: boids) {
-            if (&boid == &other) continue;
+BoidSimulation::BoidSimulation(const Assets& assets) : assets_(assets) {
+    boids_.reserve(config::fishCount);
+}
 
-            double dx = boid.x - other.x;
-            double dy = boid.y - other.y;
+void BoidSimulation::reset(const SDL_FRect& hiddenArea) {
+    boids_.clear();
+    respawnMissing(hiddenArea);
+}
 
-            if (std::abs(dx) < visualRange && std::abs(dy) < visualRange) {
-                double squaredDistance = dx * dx + dy * dy;
+void BoidSimulation::update(Vec2 predator) {
+    rebuildGrid();
 
-                if (squaredDistance < protectedRangeSquared) {
-                    closeDx += dx;
-                    closeDy += dy;
-                } else if (squaredDistance < visualRangeSquared) {
-                    xposAvg += other.x;
-                    yposAvg += other.y;
-                    xvelAvg += other.vx;
-                    yvelAvg += other.vy;
-                    neighboringBoids++;
-                }
-            }
-        }
-
-        if (neighboringBoids > 0) {
-            xposAvg /= neighboringBoids;
-            yposAvg /= neighboringBoids;
-            xvelAvg /= neighboringBoids;
-            yvelAvg /= neighboringBoids;
-
-            boid.vx += (xposAvg - boid.x) * centeringFactor + (xvelAvg - boid.vx) * matchingFactor;
-            boid.vy += (yposAvg - boid.y) * centeringFactor + (yvelAvg - boid.vy) * matchingFactor;
-        }
-
-        boid.vx += closeDx * avoidFactor;
-        boid.vy += closeDy * avoidFactor;
-
-        if (boid.y > ENV_HEIGHT) boid.vy -= turnFactor;
-        if (boid.y < 0) boid.vy += turnFactor;
-        if (boid.x > ENV_WIDTH) boid.vx -= turnFactor;
-        if (boid.x < 0) boid.vx += turnFactor;
-
-        double speed = std::sqrt(boid.vx * boid.vx + boid.vy * boid.vy);
-        if (speed < minSpeed) {
-            boid.vx = (boid.vx / speed) * minSpeed;
-            boid.vy = (boid.vy / speed) * minSpeed;
-        }
-        if (speed > maxSpeed) {
-            boid.vx = (boid.vx / speed) * maxSpeed;
-            boid.vy = (boid.vy / speed) * maxSpeed;
-        }
-
+    for (Boid& boid : boids_) {
+        steer(boid, predator);
         boid.x += boid.vx;
         boid.y += boid.vy;
-        boid.pos.x = boid.x;
-        boid.pos.y = boid.y;
-        drawBoidSurface(renderer, boid);
+
+        const auto frameCount = static_cast<int>(assets_.fish[boid.species].size());
+        boid.animationTick =
+            static_cast<std::uint8_t>((boid.animationTick + 1) % (frameCount * ticksPerFrame));
     }
 }
 
-BoidSimulation::BoidSimulation(SDL_Renderer *renderer){
-    // Sétup de la caméra
-    this->camera = {0, 0, CAMERA_WIDTH, CAMERA_HEIGHT};
+EatResult BoidSimulation::eatTouching(const SDL_FRect& hitbox) {
+    EatResult result;
+    std::erase_if(boids_, [&](const Boid& boid) {
+        const Species& species = speciesTable[boid.species];
+        if (!overlaps(hitbox, centeredRect({boid.x, boid.y}, species.width, species.height))) {
+            return false;
+        }
+        result.count += 1;
+        result.points += species.points;
+        return true;
+    });
+    return result;
+}
 
-    //initialisation du random (spawn initial des poissons)
-    std::random_device rd;
-    std::mt19937 gen(rd()); // Fonction de Mersenne
-
-    // Création des limites ou les entiers
-    std::uniform_int_distribution<int> randomX(0, ENV_WIDTH);
-    std::uniform_int_distribution<int> randomY(1, ENV_HEIGHT);
-    std::uniform_int_distribution<int> type(0, 2);
-    // Création des limites pour les float
-    std::uniform_real_distribution<float> randomVx(-3.0, 3.0);
-    std::uniform_real_distribution<float> randomVy(-3.0, 3.0);
-
-    // création initiale des poissons
-    for(unsigned int i = 0;i < boidQuantity;i++){
-        this->addBoid(Boid(randomX(gen), randomY(gen), randomVx(gen), randomVy(gen), type(gen)));
+void BoidSimulation::respawnMissing(const SDL_FRect& hiddenArea) {
+    while (boids_.size() < config::fishCount) {
+        boids_.push_back(randomBoid(hiddenArea));
     }
-    // Création des surfaces pour les images de poissons
-    SDL_Surface *fishSurface;
-    for(unsigned int i = 0;i < 3;i++) {
-        for(unsigned int j = 0;j < 5;j++) {
-            if(strcmp(IMGPATH::fishWalk[i][j], "") != 0){
-                fishSurface = IMG_Load(IMGPATH::fishWalk[i][j]);
-                if (fishSurface == NULL) {
-                    std::cout << "Erreur de création de surface poisson " << SDL_GetError() << std::endl;
-                    std::cout << IMGPATH::fishWalk[i][j] << std::endl;
+}
+
+void BoidSimulation::draw(SDL_Renderer* renderer, const Camera& camera) const {
+    const SDL_FRect screen{0.0f, 0.0f, static_cast<float>(config::windowWidth),
+                           static_cast<float>(config::windowHeight)};
+
+    for (const Boid& boid : boids_) {
+        const Species& species = speciesTable[boid.species];
+        const Vec2 onScreen{boid.x - camera.x, boid.y - camera.y};
+        const SDL_FRect destination = centeredRect(onScreen, species.width, species.height);
+        if (!overlaps(destination, screen)) {
+            continue;  // hors de l'écran : inutile de le dessiner
+        }
+
+        // Même principe que pour le joueur : l'image regarde vers la droite.
+        const float angle = angleInDegrees({boid.vx, boid.vy});
+        const SDL_RendererFlip flip = std::abs(angle) > 90.0f ? SDL_FLIP_VERTICAL : SDL_FLIP_NONE;
+        const Animation& animation = assets_.fish[boid.species];
+        SDL_Texture* frame = animation[boid.animationTick / ticksPerFrame].get();
+        SDL_RenderCopyExF(renderer, frame, nullptr, &destination, angle, nullptr, flip);
+    }
+}
+
+int BoidSimulation::columnOf(float x) {
+    return std::clamp(static_cast<int>(x / cellSize), 0, gridColumns - 1);
+}
+
+int BoidSimulation::rowOf(float y) {
+    return std::clamp(static_cast<int>(y / cellSize), 0, gridRows - 1);
+}
+
+// Range les indices des poissons case par case (tri par comptage).
+void BoidSimulation::rebuildGrid() {
+    const int cellCount = gridColumns * gridRows;
+    const auto cellOf = [](const Boid& boid) {
+        return rowOf(boid.y) * gridColumns + columnOf(boid.x);
+    };
+
+    // 1. Nombre de poissons par case, puis position de départ de chaque case.
+    cellStart_.assign(cellCount + 1, 0);
+    for (const Boid& boid : boids_) {
+        cellStart_[cellOf(boid) + 1] += 1;
+    }
+    for (int cell = 0; cell < cellCount; ++cell) {
+        cellStart_[cell + 1] += cellStart_[cell];
+    }
+
+    // 2. Chaque poisson est placé dans la tranche de sa case.
+    cellCursor_ = cellStart_;
+    boidsByCell_.resize(boids_.size());
+    for (std::size_t index = 0; index < boids_.size(); ++index) {
+        const int cell = cellOf(boids_[index]);
+        boidsByCell_[cellCursor_[cell]] = static_cast<int>(index);
+        cellCursor_[cell] += 1;
+    }
+}
+
+// Ajuste la vitesse d'un poisson en fonction de ses voisins, du joueur et des bords du monde.
+void BoidSimulation::steer(Boid& boid, Vec2 predator) const {
+    float sumX = 0.0f, sumY = 0.0f;    // positions des voisins visibles
+    float sumVx = 0.0f, sumVy = 0.0f;  // vitesses des voisins visibles
+    float awayX = 0.0f, awayY = 0.0f;  // direction pour s'écarter des voisins trop proches
+    int neighbours = 0;
+
+    const int column = columnOf(boid.x);
+    const int row = rowOf(boid.y);
+    for (int r = std::max(row - 1, 0); r <= std::min(row + 1, gridRows - 1); ++r) {
+        for (int c = std::max(column - 1, 0); c <= std::min(column + 1, gridColumns - 1); ++c) {
+            const int cell = r * gridColumns + c;
+            for (int i = cellStart_[cell]; i < cellStart_[cell + 1]; ++i) {
+                const Boid& other = boids_[boidsByCell_[i]];
+                if (&other == &boid) {
+                    continue;
                 }
-                fishTexture[i][j] = SDL_CreateTextureFromSurface(renderer, fishSurface);
-                if (fishTexture[i][j] == NULL) {
-                    std::cout << "Erreur de création de texture fishwalk " << SDL_GetError() << std::endl;
+                const float dx = boid.x - other.x;
+                const float dy = boid.y - other.y;
+                const float squaredDistance = dx * dx + dy * dy;
+
+                if (squaredDistance < protectedRange * protectedRange) {
+                    awayX += dx;
+                    awayY += dy;
+                } else if (squaredDistance < visualRange * visualRange) {
+                    sumX += other.x;
+                    sumY += other.y;
+                    sumVx += other.vx;
+                    sumVy += other.vy;
+                    neighbours += 1;
                 }
-                SDL_FreeSurface(fishSurface);
-            } else{
-                fishTexture[i][j] = NULL;
             }
         }
     }
-}
 
-BoidSimulation::~BoidSimulation(){
-    for(auto & j : this->fishTexture) {
-        for (SDL_Texture *i: j) {
-            SDL_DestroyTexture(i);
-        }
+    // Cohésion (aller vers le centre du groupe) et alignement (prendre sa vitesse moyenne).
+    if (neighbours > 0) {
+        const float count = static_cast<float>(neighbours);
+        boid.vx += (sumX / count - boid.x) * centeringFactor + (sumVx / count - boid.vx) * matchingFactor;
+        boid.vy += (sumY / count - boid.y) * centeringFactor + (sumVy / count - boid.vy) * matchingFactor;
+    }
+
+    // Séparation.
+    boid.vx += awayX * avoidFactor;
+    boid.vy += awayY * avoidFactor;
+
+    // Fuite : on s'éloigne du joueur s'il est assez près pour être vu.
+    const Vec2 fromPredator{boid.x - predator.x, boid.y - predator.y};
+    const float predatorDistance = length(fromPredator);
+    if (predatorDistance < fleeRange && predatorDistance > 0.0f) {
+        boid.vx += fromPredator.x / predatorDistance * fleeFactor;
+        boid.vy += fromPredator.y / predatorDistance * fleeFactor;
+    }
+
+    // Demi-tour progressif à l'approche des bords.
+    if (boid.x < edgeMargin) boid.vx += turnFactor;
+    if (boid.x > config::worldWidth - edgeMargin) boid.vx -= turnFactor;
+    if (boid.y < edgeMargin) boid.vy += turnFactor;
+    if (boid.y > config::worldHeight - edgeMargin) boid.vy -= turnFactor;
+
+    // La vitesse reste entre minSpeed et maxSpeed.
+    const float speed = std::sqrt(boid.vx * boid.vx + boid.vy * boid.vy);
+    if (speed < 0.0001f) {
+        boid.vx = minSpeed;  // poisson à l'arrêt complet : on le relance
+        boid.vy = 0.0f;
+    } else {
+        const float wantedSpeed = std::clamp(speed, minSpeed, maxSpeed);
+        boid.vx *= wantedSpeed / speed;
+        boid.vy *= wantedSpeed / speed;
     }
 }
 
-void BoidSimulation::drawBoidSurface(SDL_Renderer* renderer, Boid& boid){
-    // On n'affiche pas les poissons qu'on ne peut pas voir (avec une marge)
-    if(boid.pos.x > (this->camera.x - 20) * 4 && boid.pos.x < (this->camera.x + CAMERA_WIDTH + 20) * 4){
-        // séparation en 2 if (x et y) pour plus de lisibilité
-        if(boid.pos.y > (this->camera.y - 20) * 4 && boid.pos.y < (this->camera.y + CAMERA_HEIGHT + 20) * 4){
-            boid.gifIter++;
-            double angle = std::atan2(boid.vy, boid.vx) * (180.0 / M_PI); // angle de rotation en dégré (sens des aiguilles)
-            SDL_RendererFlip flip;
-            SDL_Rect position = SDL_Rect(boid.pos.x - this->camera.x * 4, boid.pos.y - this->camera.y * 4, boid.sizeH, boid.sizeW);
-            if(angle > 90.0 || angle < -90.0){
-                flip = SDL_FLIP_VERTICAL;
-            }
-            else{
-                flip = SDL_FLIP_NONE;
-            }
-            if(boid.type == 0){
-                boid.gifIter %= 18;
-                SDL_RenderCopyEx(renderer, this->fishTexture[boid.type][boid.gifIter / 6],  NULL, &position, angle, NULL, flip);
-            } else {
-                boid.gifIter %= 20;
-                SDL_RenderCopyEx(renderer, this->fishTexture[boid.type][boid.gifIter / 5],  NULL, &position, angle, NULL, flip);
-            }
-        }
-    }
-}
+Boid BoidSimulation::randomBoid(const SDL_FRect& hiddenArea) {
+    std::uniform_real_distribution<float> randomX(edgeMargin, config::worldWidth - edgeMargin);
+    std::uniform_real_distribution<float> randomY(edgeMargin, config::worldHeight - edgeMargin);
+    std::uniform_real_distribution<float> randomVelocity(-3.0f, 3.0f);
+    std::uniform_int_distribution<int> randomSpecies(0, static_cast<int>(speciesTable.size()) - 1);
 
-void BoidSimulation::respawnBoid(){
-    //initialisation du random (spawn initial des poissons)
-    std::random_device rd;
-    std::mt19937 gen(rd()); // Fonction de Mersenne
+    Boid boid{};
+    do {
+        boid.x = randomX(random_);
+        boid.y = randomY(random_);
+    } while (contains(hiddenArea, {boid.x, boid.y}));
 
-    // Création des limites ou les entiers
-    std::uniform_int_distribution<int> randomX(0, ENV_WIDTH);
-    std::uniform_int_distribution<int> randomY(1, ENV_HEIGHT);
-    std::uniform_int_distribution<int> type(0, 2);
-    // Création des limites pour les float
-    std::uniform_real_distribution<float> randomVx(-3.0, 3.0);
-    std::uniform_real_distribution<float> randomVy(-3.0, 3.0);
+    boid.vx = randomVelocity(random_);
+    boid.vy = randomVelocity(random_);
+    boid.species = static_cast<std::uint8_t>(randomSpecies(random_));
 
-    // Nombre de poisson à faire respawn
-    int missingBoid = this->boidQuantity - this->boids.size();
-
-    for(int i = 0;i < missingBoid;i++){
-        this->addBoid(Boid(randomX(gen), randomY(gen), randomVx(gen), randomVy(gen), type(gen)));
-    }
-}
-
-void BoidSimulation::reset() {
-    this->camera.x = 0;
-    this->camera.y = 0;
-    respawnBoid();
+    // Départ à un moment aléatoire de l'animation : les poissons ne battent pas tous en rythme.
+    const auto frameCount = static_cast<int>(assets_.fish[boid.species].size());
+    std::uniform_int_distribution<int> randomTick(0, frameCount * ticksPerFrame - 1);
+    boid.animationTick = static_cast<std::uint8_t>(randomTick(random_));
+    return boid;
 }

@@ -1,119 +1,66 @@
 #include "player.hpp"
 
-Player::Player(SDL_Renderer *renderer){
-    this->playerGifIter = 0;
+#include "config.hpp"
 
-    this->pos = SDL_Rect(WINDOW_WIDTH/2, WINDOW_HEIGHT/2, this->sizeW, this->sizeH);
-    this->hitbox = SDL_Rect(this->pos.x + 10, this->pos.y, this->sizeW - 20, this->sizeH);
+#include <algorithm>
+#include <cmath>
 
-    this->scorePoint = 0;
-    this->killCounter = 0;
-
-    SDL_Surface *playerSurface;
-
-    for(unsigned int i = 0;i < 4;i++){
-        playerSurface = IMG_Load(IMGPATH::playerWalk[i]);
-        if (playerSurface == NULL) {
-            std::cout << "Erreur de création de surface player" << SDL_GetError() << std::endl;
-        }
-        this->playerTextureWalk[i] = SDL_CreateTextureFromSurface(renderer, playerSurface);
-        if(this->playerTextureWalk[i] == NULL) {
-            std::cout << "Erreur de création de texture playerWalk" << SDL_GetError() << std::endl;
-        }
-        SDL_FreeSurface(playerSurface);
-    }
-
-    for(unsigned int i = 0;i < 4;i++){
-        playerSurface = IMG_Load(IMGPATH::playerIdle[i]);
-        if (playerSurface == NULL) {
-            std::cout << "Erreur de création de surface player" << SDL_GetError() << std::endl;
-        }
-        this->playerTextureIdle[i] = SDL_CreateTextureFromSurface(renderer, playerSurface);
-        if(this->playerTextureIdle[i] == NULL) {
-            std::cout << "Erreur de création de texture playerWalk" << SDL_GetError() << std::endl;
-        }
-        SDL_FreeSurface(playerSurface);
-    }
-
-    SDL_Surface* mainTextSurface = TTF_RenderText_Solid(FONT::font1, "Type the player's name", FONT::color);
-    this->mainTextTexture = SDL_CreateTextureFromSurface(renderer, mainTextSurface);
-    this->mainTextPos = {WINDOW_WIDTH/2 - mainTextSurface->w/2, 250, mainTextSurface->w, mainTextSurface->h};
-    SDL_FreeSurface(mainTextSurface);
-    SDL_Surface* secondaryTextSurface = TTF_RenderText_Solid(FONT::font2, "Max 16 characters | No special characters | HAVE FUN", FONT::color2);
-    this->secondaryTextTexture = SDL_CreateTextureFromSurface(renderer, secondaryTextSurface);
-    this->secondaryTextPos = {WINDOW_WIDTH/2 - secondaryTextSurface->w/2, this->mainTextPos.y + this->mainTextPos.h + 100, secondaryTextSurface->w, secondaryTextSurface->h};
-    SDL_FreeSurface(secondaryTextSurface);
-}
-
-Player::~Player(){
-    for(SDL_Texture *i : this->playerTextureWalk){
-        SDL_DestroyTexture(i);
-    }
-    for(SDL_Texture *i : this->playerTextureIdle){
-        SDL_DestroyTexture(i);
-    }
-    SDL_DestroyTexture(this->mainTextTexture);
-    SDL_DestroyTexture(this->secondaryTextTexture);
-}
-
-void Player::drawPlayer(SDL_Renderer *renderer, int angle, bool moving){
-    this->playerGifIter++;
-    this->playerGifIter %= 16;
-    SDL_RendererFlip flip;
-    this->hitbox = SDL_Rect(this->pos.x + 10, this->pos.y, this->sizeW - 20, this->sizeH);
-    if(angle > 90){
-        flip = SDL_FLIP_HORIZONTAL;
-        angle = 0;
-    } else{
-        flip = SDL_FLIP_NONE;
-    }
-    if (angle ==  90 || angle == -90){
-        this->hitbox = SDL_Rect(this->pos.x + 10, this->pos.y, this->sizeH, this->sizeW - 20); // On réduit la taille du poisson, et on recentre
-    }
-    if(moving){
-        SDL_RenderCopyEx(renderer, this->playerTextureWalk[this->playerGifIter/4],  NULL, &this->pos, angle, NULL, flip);
-    } // animation du personnage différente en fonction de si il se déplace ou pas
-    else{
-        SDL_RenderCopyEx(renderer, this->playerTextureIdle[this->playerGifIter/4],  NULL, &this->pos, angle, NULL, flip);
-    }
-}
-
-void Player::checkEveryColisions(BoidSimulation *simulation) {
-    SDL_Rect boidPos;
-    for (auto it = simulation->boids.begin(); it != simulation->boids.end(); ) {
-        boidPos = SDL_Rect(it->pos.x - simulation->camera.x * 4, it->pos.y - simulation->camera.y * 4, it->pos.w, it->pos.h);
-        if (SDL_HasIntersection(&this->hitbox, &boidPos)){
-            this->killCounter++;
-            this->scorePoint += it->type + 1;
-            // Supprime l'élément et met à jour l'itérateur
-            it = simulation->boids.erase(it); // renvoie l'élément suivant
-        } else {
-            ++it; // Passe à l'élément suivant si pas de suppression
-        }
-    }
+Player::Player(const Assets& assets) : assets_(assets) {
+    reset();
 }
 
 void Player::reset() {
-    this->playerGifIter = 0;
-    this->scorePoint = 0;
-    this->killCounter = 0;
-    this->pos.x = WINDOW_WIDTH/2;
-    this->pos.y = WINDOW_HEIGHT/2;
-    this->name = "";
+    position_ = {config::worldWidth / 2.0f, config::worldHeight / 2.0f};
+    velocity_ = {};
+    angle_ = 0.0f;
+    swimming_ = false;
+    animationTime_ = 0.0f;
 }
 
-void Player::drawAskName(SDL_Renderer *renderer, std::string tempName) {
-    SDL_RenderCopy(renderer, this->mainTextTexture, NULL, &this->mainTextPos);
-    SDL_RenderCopy(renderer, this->secondaryTextTexture, NULL, &this->secondaryTextPos);
-    if(tempName.size() < 16) {
-        tempName += "_";
+void Player::update(float dt, Vec2 direction) {
+    // Vitesse visée : même norme dans toutes les directions, diagonales comprises.
+    Vec2 targetVelocity;
+    const float directionLength = length(direction);
+    swimming_ = directionLength > 0.0f;
+    if (swimming_) {
+        targetVelocity = direction * (config::playerSpeed / directionLength);
     }
 
-    SDL_Surface* playerNameTypingSurface = TTF_RenderText_Solid(FONT::font1, tempName.c_str(), FONT::color);
-    this->playerNameTypingTexture = SDL_CreateTextureFromSurface(renderer, playerNameTypingSurface);
-    this->playerNameTypingPos = {WINDOW_WIDTH/2 - playerNameTypingSurface->w/2, this->mainTextPos.y + mainTextPos.h + 50, playerNameTypingSurface->w, playerNameTypingSurface->h};
-    SDL_FreeSurface(playerNameTypingSurface);
-    SDL_RenderCopy(renderer, this->playerNameTypingTexture, NULL, &this->playerNameTypingPos);
-    SDL_DestroyTexture(this->playerNameTypingTexture);
+    // On se rapproche progressivement de la vitesse visée : départs et arrêts en douceur.
+    const float blend = std::min(1.0f, config::playerAcceleration * dt);
+    velocity_ = velocity_ + (targetVelocity - velocity_) * blend;
+    position_ = position_ + velocity_ * dt;
+
+    // Le joueur reste entièrement dans le monde.
+    const float margin = config::playerWidth / 2.0f;
+    position_.x = std::clamp(position_.x, margin, config::worldWidth - margin);
+    position_.y = std::clamp(position_.y, margin, config::worldHeight - margin);
+
+    // À l'arrêt, on garde la dernière orientation.
+    if (swimming_) {
+        angle_ = angleInDegrees(velocity_);
+    }
+    animationTime_ += dt;
 }
 
+void Player::draw(SDL_Renderer* renderer, const Camera& camera) const {
+    const Animation& animation = swimming_ ? assets_.playerSwim : assets_.playerIdle;
+    const auto frame = static_cast<std::size_t>(animationTime_ * config::playerAnimationFps) %
+                       animation.size();
+
+    const Vec2 onScreen = position_ - Vec2{camera.x, camera.y};
+    const SDL_FRect destination =
+        centeredRect(onScreen, config::playerWidth, config::playerHeight);
+
+    // L'image regarde vers la droite. Quand le poisson va vers la gauche,
+    // on la retourne pour qu'il ne nage pas sur le dos.
+    const bool facingLeft = std::abs(angle_) > 90.0f;
+    const SDL_RendererFlip flip = facingLeft ? SDL_FLIP_VERTICAL : SDL_FLIP_NONE;
+    SDL_RenderCopyExF(renderer, animation[frame].get(), nullptr, &destination, angle_, nullptr,
+                      flip);
+}
+
+SDL_FRect Player::hitbox() const {
+    // Carré centré sur le poisson : valable quelle que soit son orientation.
+    return centeredRect(position_, config::playerHitboxSize, config::playerHitboxSize);
+}

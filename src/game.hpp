@@ -1,20 +1,49 @@
-#ifndef PROJET_POISSON_GAME_HPP
-#define PROJET_POISSON_GAME_HPP
+#pragma once
 
-#include "player.hpp"
-#include "boidSimulation.hpp"
-#include "gameTimer.hpp"
-#include "scoreboard.hpp"
-#include "welcomeScreen.hpp"
-#include "endScreen.hpp"
-#include "pauseScreen.hpp"
-#include "scoreScreen.hpp"
+#include "assets.hpp"
+#include "gameSession.hpp"
+#include "highScores.hpp"
+#include "screens/screen.hpp"
+#include "sdlUtils.hpp"
 
-#include <thread>
+#include <array>
+#include <memory>
 
-void checkDeplacement(SDL_Renderer* renderer, BoidSimulation* simulation, Player* player, SDL_Event event, bool* moving, int* angle);
+// Le programme : la fenêtre, les ressources, les écrans et la boucle principale.
+class Game {
+public:
+    Game();
 
-void checkClick(WelcomeScreen* welcome, SDL_Event event, int* runningType, EndScreen* finish, PauseScreen* pause, ScoreScreen* score);
+    // Tourne jusqu'à la fermeture du jeu.
+    void run();
 
+    // Une image : évènements, mise à jour, affichage.
+    void runFrame();
 
-#endif //PROJET_POISSON_GAME_HPP
+    bool isRunning() const { return running_; }
+    SDL_Renderer* renderer() const { return renderer_.get(); }
+
+private:
+    static constexpr std::size_t screenCount = static_cast<std::size_t>(ScreenId::Quit);
+
+    Screen& currentScreen() { return *screens_[static_cast<std::size_t>(current_)]; }
+    void handleEvents();
+    void applyScreenRequest();
+    void toggleFullscreen();
+
+    // L'ordre des membres compte : ils sont détruits dans l'ordre inverse,
+    // donc les textures avant le renderer, et SDL en tout dernier.
+    SdlContext sdl_;
+    WindowPtr window_;
+    RendererPtr renderer_;
+    Assets assets_;
+    GameSession session_;
+    HighScores highScores_;
+    GameContext context_;
+    std::array<std::unique_ptr<Screen>, screenCount> screens_;
+
+    ScreenId current_ = ScreenId::Welcome;
+    bool running_ = true;
+    Uint64 lastFrameTime_ = 0;
+    float timeToSimulate_ = 0.0f;  // temps écoulé pas encore traité par update()
+};
