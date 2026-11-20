@@ -128,9 +128,18 @@ SDL_FRect Player::jawHitbox() const {
     const float s = std::sin(angle_ * degToRad);
     const Vec2 rotated{offset.x * c - offset.y * s, offset.x * s + offset.y * c};
 
-    // Le carré lui-même reste aligné sur les axes : seul son centre suit la rotation.
-    const float size = config::jawHitboxSize * scale_;
-    return centeredRect(position_ + rotated, size, size);
+    // Taille de la mâchoire quand le poisson regarde vers la droite.
+    const float width = config::jawHitboxWidth * scale_;
+    const float height = config::jawHitboxHeight * scale_;
+
+    // SDL ne sait pas tourner un rectangle : on prend le plus petit rectangle droit
+    // qui contient la mâchoire tournée.
+    //   - vers la droite ou la gauche : width x height (allongé à l'horizontale)
+    //   - vers le haut ou le bas : height x width (allongé à la verticale)
+    //   - en diagonale : entre les deux, un peu plus grand
+    const float rotatedWidth = width * std::abs(c) + height * std::abs(s);
+    const float rotatedHeight = width * std::abs(s) + height * std::abs(c);
+    return centeredRect(position_ + rotated, rotatedWidth, rotatedHeight);
 }
 
 float Player::dashReadiness() const {

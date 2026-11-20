@@ -40,7 +40,8 @@ inline constexpr float playerHitboxSize = 50.0f;  // corps : ramasse les bulles 
 // (le sprite fait 88 x 44 : la tête finit vers x = +24, l'épée va jusqu'à x = +44).
 inline constexpr float jawOffsetX = 30.0f;  // vers l'avant
 inline constexpr float jawOffsetY = 2.0f;   // vers le ventre
-inline constexpr float jawHitboxSize = 28.0f;
+inline constexpr float jawHitboxWidth = 28.0f;   // le long du poisson
+inline constexpr float jawHitboxHeight = 14.0f;  // en travers du poisson
 inline constexpr bool showJawHitbox = true;  // debug : dessine la mâchoire en bleu
 
 // Dash (touche Espace) : courte poussée, puis temps de recharge
