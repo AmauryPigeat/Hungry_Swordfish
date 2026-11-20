@@ -39,7 +39,7 @@ void GameSession::update(float dt, const PlayerInput& input) {
     player_.update(dt, input, speedMultiplier);
     camera_.centerOn(player_.position());
 
-    const EatResult eaten = fish_.eatTouching(player_.hitbox());
+    const EatResult eaten = fish_.eatTouching(player_.jawHitbox());
     const int pointsMultiplier = doubleScoreTimeLeft_ > 0.0f ? config::scoreMultiplier : 1;
     kills_ += eaten.count;
     score_ += eaten.points * pointsMultiplier;

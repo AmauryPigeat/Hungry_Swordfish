@@ -25,7 +25,8 @@ public:
     void grow(int kills);
 
     Vec2 position() const { return position_; }
-    SDL_FRect hitbox() const;
+    SDL_FRect hitbox() const;     // tout le corps : ramasse les bonus
+    SDL_FRect jawHitbox() const;  // avant de la tête : mange les poissons
 
     // 0 juste après un dash, 1 quand il est de nouveau disponible.
     float dashReadiness() const;

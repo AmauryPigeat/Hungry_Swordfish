@@ -33,7 +33,15 @@ inline constexpr float playerHeight = 44.0f;
 inline constexpr float playerSpeed = 450.0f;        // pixels par seconde
 inline constexpr float playerAcceleration = 10.0f;  // plus c'est grand, plus il réagit vite
 inline constexpr float playerAnimationFps = 10.0f;
-inline constexpr float playerHitboxSize = 50.0f;
+inline constexpr float playerHitboxSize = 50.0f;  // corps : ramasse les bulles bonus
+
+// Mâchoire : seule cette zone, à l'avant de la tête, mange les poissons.
+// Décalage depuis le centre du sprite, image tournée vers la droite, à la taille de départ
+// (le sprite fait 88 x 44 : la tête finit vers x = +24, l'épée va jusqu'à x = +44).
+inline constexpr float jawOffsetX = 30.0f;  // vers l'avant
+inline constexpr float jawOffsetY = 2.0f;   // vers le ventre
+inline constexpr float jawHitboxSize = 28.0f;
+inline constexpr bool showJawHitbox = true;  // debug : dessine la mâchoire en bleu
 
 // Dash (touche Espace) : courte poussée, puis temps de recharge
 inline constexpr float dashSpeedMultiplier = 2.5f;

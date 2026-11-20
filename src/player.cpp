@@ -83,6 +83,17 @@ void Player::draw(SDL_Renderer* renderer, const Camera& camera) const {
     const SDL_RendererFlip flip = facingLeft ? SDL_FLIP_VERTICAL : SDL_FLIP_NONE;
     SDL_RenderCopyExF(renderer, animation[frame].get(), nullptr, &destination, angle_, nullptr,
                       flip);
+
+    if (config::showJawHitbox) {
+        SDL_FRect jaw = jawHitbox();
+        jaw.x -= camera.x;
+        jaw.y -= camera.y;
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, 0, 120, 255, 90);
+        SDL_RenderFillRectF(renderer, &jaw);
+        SDL_SetRenderDrawColor(renderer, 0, 120, 255, 255);
+        SDL_RenderDrawRectF(renderer, &jaw);
+    }
 }
 
 void Player::grow(int kills) {
@@ -94,6 +105,27 @@ SDL_FRect Player::hitbox() const {
     // Carré centré sur le poisson : valable quelle que soit son orientation.
     const float size = config::playerHitboxSize * scale_;
     return centeredRect(position_, size, size);
+}
+
+SDL_FRect Player::jawHitbox() const {
+    // Position de la mâchoire dans l'image (tournée vers la droite), à la taille actuelle.
+    Vec2 offset{config::jawOffsetX * scale_, config::jawOffsetY * scale_};
+
+    // L'image est d'abord retournée verticalement quand le poisson va vers la gauche
+    // (voir draw) : le ventre passe alors de l'autre côté.
+    if (std::abs(angle_) > 90.0f) {
+        offset.y = -offset.y;
+    }
+
+    // Puis elle est tournée de angle_ autour de son centre : on applique la même rotation.
+    constexpr float degToRad = 0.01745329252f;
+    const float c = std::cos(angle_ * degToRad);
+    const float s = std::sin(angle_ * degToRad);
+    const Vec2 rotated{offset.x * c - offset.y * s, offset.x * s + offset.y * c};
+
+    // Le carré lui-même reste aligné sur les axes : seul son centre suit la rotation.
+    const float size = config::jawHitboxSize * scale_;
+    return centeredRect(position_ + rotated, size, size);
 }
 
 float Player::dashReadiness() const {
