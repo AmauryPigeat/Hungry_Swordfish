@@ -98,7 +98,11 @@ void PlayingScreen::draw() {
     } else {
         const int seconds = secondsToDisplay(session.timeLeft());
         timer_.set(std::to_string(seconds));
-        timer_.setColor(seconds < config::lowTimeThreshold ? config::red : config::white);
+        if (seconds < config::lowTimeThreshold) {
+            timer_.setColor(config::red);
+        } else {
+            timer_.setColor(config::white);
+        }
         timer_.drawRightAligned(config::windowWidth - hudMargin, hudMargin);
         drawDashGauge();
     }
@@ -117,7 +121,10 @@ void PlayingScreen::drawDashGauge() const {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, config::dimOpacity);
     SDL_RenderFillRect(renderer, &background);
 
-    const SDL_Color fill = readiness >= 1.0f ? config::mint : config::white;
+    SDL_Color fill = config::white;
+    if (readiness >= 1.0f) {
+        fill = config::mint;
+    }
     const SDL_Rect filled{hudMargin, barY,
                           static_cast<int>(static_cast<float>(dashGaugeWidth) * readiness),
                           dashGaugeHeight};

@@ -35,12 +35,18 @@ void GameSession::update(float dt, const PlayerInput& input) {
         return;
     }
 
-    const float speedMultiplier = sprintTimeLeft_ > 0.0f ? config::sprintMultiplier : 1.0f;
+    float speedMultiplier = 1.0f;
+    if (sprintTimeLeft_ > 0.0f) {
+        speedMultiplier = config::sprintMultiplier;
+    }
     player_.update(dt, input, speedMultiplier);
     camera_.centerOn(player_.position());
 
     const EatResult eaten = fish_.eatTouching(player_.jawHitbox());
-    const int pointsMultiplier = doubleScoreTimeLeft_ > 0.0f ? config::scoreMultiplier : 1;
+    int pointsMultiplier = 1;
+    if (doubleScoreTimeLeft_ > 0.0f) {
+        pointsMultiplier = config::scoreMultiplier;
+    }
     kills_ += eaten.count;
     score_ += eaten.points * pointsMultiplier;
     player_.grow(eaten.count);

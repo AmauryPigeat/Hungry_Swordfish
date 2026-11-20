@@ -11,7 +11,10 @@ Button::Button(SDL_Renderer* renderer, SDL_Texture* background, TTF_Font* font,
 
 void Button::draw(bool hovered) const {
     // Le fond est légèrement assombri tant que la souris n'est pas dessus.
-    const Uint8 brightness = hovered ? 255 : 215;
+    Uint8 brightness = 215;
+    if (hovered) {
+        brightness = 255;
+    }
     SDL_SetTextureColorMod(background_, brightness, brightness, brightness);
     SDL_RenderCopy(renderer_, background_, nullptr, &area_);
     SDL_SetTextureColorMod(background_, 255, 255, 255);

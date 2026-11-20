@@ -124,5 +124,9 @@ void Game::applyScreenRequest() {
 
 void Game::toggleFullscreen() {
     const bool fullscreen = (SDL_GetWindowFlags(window_.get()) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
-    SDL_SetWindowFullscreen(window_.get(), fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
+    if (fullscreen) {
+        SDL_SetWindowFullscreen(window_.get(), 0);  // retour en mode fenêtré
+    } else {
+        SDL_SetWindowFullscreen(window_.get(), SDL_WINDOW_FULLSCREEN_DESKTOP);
+    }
 }

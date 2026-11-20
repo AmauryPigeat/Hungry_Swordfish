@@ -69,9 +69,12 @@ void Player::update(float dt, const PlayerInput& input, float speedMultiplier) {
 void Player::draw(SDL_Renderer* renderer, const Camera& camera) const {
     // Pendant un dash, le poisson nage même si aucune touche de direction n'est appuyée.
     const bool moving = swimming_ || dashTimeLeft_ > 0.0f;
-    const Animation& animation = moving ? assets_.playerSwim : assets_.playerIdle;
+    const Animation* animation = &assets_.playerIdle;
+    if (moving) {
+        animation = &assets_.playerSwim;
+    }
     const auto frame = static_cast<std::size_t>(animationTime_ * config::playerAnimationFps) %
-                       animation.size();
+                       animation->size();
 
     const Vec2 onScreen = position_ - Vec2{camera.x, camera.y};
     const SDL_FRect destination = centeredRect(onScreen, config::playerWidth * scale_,
@@ -79,9 +82,11 @@ void Player::draw(SDL_Renderer* renderer, const Camera& camera) const {
 
     // L'image regarde vers la droite. Quand le poisson va vers la gauche,
     // on la retourne pour qu'il ne nage pas sur le dos.
-    const bool facingLeft = std::abs(angle_) > 90.0f;
-    const SDL_RendererFlip flip = facingLeft ? SDL_FLIP_VERTICAL : SDL_FLIP_NONE;
-    SDL_RenderCopyExF(renderer, animation[frame].get(), nullptr, &destination, angle_, nullptr,
+    SDL_RendererFlip flip = SDL_FLIP_NONE;
+    if (std::abs(angle_) > 90.0f) {
+        flip = SDL_FLIP_VERTICAL;
+    }
+    SDL_RenderCopyExF(renderer, (*animation)[frame].get(), nullptr, &destination, angle_, nullptr,
                       flip);
 
     if (config::showJawHitbox) {

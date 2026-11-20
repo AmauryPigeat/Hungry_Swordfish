@@ -59,5 +59,8 @@ std::filesystem::path executableDirectory() {
 
     const std::filesystem::path directory(std::u8string(text.begin(), text.end()));
     // "dossier/" -> "dossier" : parent_path() retire le séparateur final.
-    return directory.has_filename() ? directory : directory.parent_path();
+    if (directory.has_filename()) {
+        return directory;
+    }
+    return directory.parent_path();
 }

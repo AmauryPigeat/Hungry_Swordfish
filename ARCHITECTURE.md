@@ -159,7 +159,10 @@ Dans l'ordre :
 7. Les chronos (partie, sprint, x2) diminuent de `dt`, sans descendre sous 0.
 
 ```cpp
-const int pointsMultiplier = doubleScoreTimeLeft_ > 0.0f ? config::scoreMultiplier : 1;
+int pointsMultiplier = 1;
+if (doubleScoreTimeLeft_ > 0.0f) {
+    pointsMultiplier = config::scoreMultiplier;
+}
 kills_ += eaten.count;
 score_ += eaten.points * pointsMultiplier;
 player_.grow(eaten.count);

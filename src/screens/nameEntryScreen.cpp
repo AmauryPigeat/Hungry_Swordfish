@@ -67,8 +67,11 @@ void NameEntryScreen::draw() {
     drawMenuBackground();
 
     // Le '_' sert de curseur tant qu'il reste de la place.
-    const bool full = name_.size() >= config::maxNameLength;
-    typedName_.set(full ? name_ : name_ + "_");
+    if (name_.size() < config::maxNameLength) {
+        typedName_.set(name_ + "_");
+    } else {
+        typedName_.set(name_);
+    }
 
     prompt_.drawCentered(screenCenterX, promptY);
     const int nameY = promptY + prompt_.height() + lineSpacing;

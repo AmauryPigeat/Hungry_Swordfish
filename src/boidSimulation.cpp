@@ -61,7 +61,10 @@ void BoidSimulation::draw(SDL_Renderer* renderer, const Camera& camera) const {
 
         // Même principe que pour le joueur : l'image regarde vers la droite.
         const float angle = angleInDegrees({boid.vx, boid.vy});
-        const SDL_RendererFlip flip = std::abs(angle) > 90.0f ? SDL_FLIP_VERTICAL : SDL_FLIP_NONE;
+        SDL_RendererFlip flip = SDL_FLIP_NONE;
+        if (std::abs(angle) > 90.0f) {
+            flip = SDL_FLIP_VERTICAL;
+        }
         const Animation& animation = assets_.fish[boid.species];
         SDL_Texture* frame = animation[boid.animationTick / ticksPerFrame].get();
         SDL_RenderCopyExF(renderer, frame, nullptr, &destination, angle, nullptr, flip);
