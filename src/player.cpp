@@ -90,15 +90,35 @@ void Player::draw(SDL_Renderer* renderer, const Camera& camera) const {
                       flip);
 
     if (config::showJawHitbox) {
-        SDL_FRect jaw = jawHitbox();
-        jaw.x -= camera.x;
-        jaw.y -= camera.y;
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(renderer, 0, 120, 255, 90);
-        SDL_RenderFillRectF(renderer, &jaw);
-        SDL_SetRenderDrawColor(renderer, 0, 120, 255, 255);
-        SDL_RenderDrawRectF(renderer, &jaw);
+        drawJawHitbox(renderer, camera);
     }
+}
+
+// Debug : la mâchoire en bleu, remplie en transparence avec un contour.
+void Player::drawJawHitbox(SDL_Renderer* renderer, const Camera& camera) const {
+    const Quad jaw = jawHitbox();
+    const SDL_Color blue{0, 120, 255, 255};
+    const SDL_Color transparentBlue{0, 120, 255, 90};
+
+    // Les 4 coins à l'écran. SDL_RenderGeometry dessine des triangles :
+    // le rectangle est coupé en deux triangles (coins 0-1-2 et 0-2-3).
+    SDL_Vertex vertices[4];
+    SDL_FPoint outline[5];
+    for (int i = 0; i < 4; ++i) {
+        const SDL_FPoint point{jaw.corners[i].x - camera.x, jaw.corners[i].y - camera.y};
+        vertices[i].position = point;
+        vertices[i].color = transparentBlue;
+        vertices[i].tex_coord = {0.0f, 0.0f};
+        outline[i] = point;
+    }
+    outline[4] = outline[0];  // on revient au premier coin pour fermer le contour
+
+    const int triangles[6] = {0, 1, 2, 0, 2, 3};
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_RenderGeometry(renderer, nullptr, vertices, 4, triangles, 6);
+
+    SDL_SetRenderDrawColor(renderer, blue.r, blue.g, blue.b, blue.a);
+    SDL_RenderDrawLinesF(renderer, outline, 5);
 }
 
 void Player::grow(int kills) {
@@ -112,7 +132,7 @@ SDL_FRect Player::hitbox() const {
     return centeredRect(position_, size, size);
 }
 
-SDL_FRect Player::jawHitbox() const {
+Quad Player::jawHitbox() const {
     // Position de la mâchoire dans l'image (tournée vers la droite), à la taille actuelle.
     Vec2 offset{config::jawOffsetX * scale_, config::jawOffsetY * scale_};
 
@@ -122,24 +142,12 @@ SDL_FRect Player::jawHitbox() const {
         offset.y = -offset.y;
     }
 
-    // Puis elle est tournée de angle_ autour de son centre : on applique la même rotation.
-    constexpr float degToRad = 0.01745329252f;
-    const float c = std::cos(angle_ * degToRad);
-    const float s = std::sin(angle_ * degToRad);
-    const Vec2 rotated{offset.x * c - offset.y * s, offset.x * s + offset.y * c};
-
-    // Taille de la mâchoire quand le poisson regarde vers la droite.
+    // Puis elle est tournée de angle_ autour de son centre : on applique la même rotation
+    // au décalage, et la mâchoire tourne du même angle que le poisson.
+    const Vec2 center = position_ + rotate(offset, angle_);
     const float width = config::jawHitboxWidth * scale_;
     const float height = config::jawHitboxHeight * scale_;
-
-    // SDL ne sait pas tourner un rectangle : on prend le plus petit rectangle droit
-    // qui contient la mâchoire tournée.
-    //   - vers la droite ou la gauche : width x height (allongé à l'horizontale)
-    //   - vers le haut ou le bas : height x width (allongé à la verticale)
-    //   - en diagonale : entre les deux, un peu plus grand
-    const float rotatedWidth = width * std::abs(c) + height * std::abs(s);
-    const float rotatedHeight = width * std::abs(s) + height * std::abs(c);
-    return centeredRect(position_ + rotated, rotatedWidth, rotatedHeight);
+    return rotatedRect(center, width, height, angle_);
 }
 
 float Player::dashReadiness() const {

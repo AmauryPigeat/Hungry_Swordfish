@@ -26,12 +26,14 @@ public:
 
     Vec2 position() const { return position_; }
     SDL_FRect hitbox() const;     // tout le corps : ramasse les bonus
-    SDL_FRect jawHitbox() const;  // avant de la tête : mange les poissons
+    Quad jawHitbox() const;       // avant de la tête, tourne avec le poisson : mange les poissons
 
     // 0 juste après un dash, 1 quand il est de nouveau disponible.
     float dashReadiness() const;
 
 private:
+    void drawJawHitbox(SDL_Renderer* renderer, const Camera& camera) const;
+
     const Assets& assets_;
     Vec2 position_;  // centre du poisson, en coordonnées du monde
     Vec2 velocity_;

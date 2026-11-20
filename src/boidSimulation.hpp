@@ -47,8 +47,8 @@ public:
     // predator : position du joueur, que les poissons proches cherchent à fuir.
     void update(Vec2 predator);
 
-    // Retire les poissons qui touchent hitbox et renvoie ce qu'ils rapportent.
-    EatResult eatTouching(const SDL_FRect& hitbox);
+    // Retire les poissons qui touchent la mâchoire et renvoie ce qu'ils rapportent.
+    EatResult eatTouching(const Quad& jaw);
 
     // Complète le banc jusqu'à config::fishCount, hors de hiddenArea
     // pour que les poissons n'apparaissent pas sous les yeux du joueur.

@@ -27,11 +27,12 @@ void BoidSimulation::update(Vec2 predator) {
     }
 }
 
-EatResult BoidSimulation::eatTouching(const SDL_FRect& hitbox) {
+EatResult BoidSimulation::eatTouching(const Quad& jaw) {
     EatResult result;
     std::erase_if(boids_, [&](const Boid& boid) {
         const Species& species = speciesTable[boid.species];
-        if (!overlaps(hitbox, centeredRect({boid.x, boid.y}, species.width, species.height))) {
+        const SDL_FRect fish = centeredRect({boid.x, boid.y}, species.width, species.height);
+        if (!quadsOverlap(jaw, quadFromRect(fish))) {
             return false;
         }
         result.count += 1;
