@@ -23,6 +23,19 @@ Animation loadAnimation(SDL_Renderer* renderer, const fs::path& directory,
     return frames;
 }
 
+// Charge une image et la réduit en carré de size x size, pour servir d'icône.
+// Le logo fait 1008 x 1008 : trop lourd pour certains systèmes (X11 sous Linux).
+SurfacePtr loadIcon(const fs::path& file, int size) {
+    const SurfacePtr image = loadSurface(file);
+    SurfacePtr icon(SDL_CreateRGBSurfaceWithFormat(0, size, size, 32, SDL_PIXELFORMAT_RGBA32));
+    if (!icon) {
+        throw SdlError("Création de l'icône impossible");
+    }
+    SDL_SetSurfaceBlendMode(image.get(), SDL_BLENDMODE_NONE);  // copie la transparence telle quelle
+    SDL_BlitScaled(image.get(), nullptr, icon.get(), nullptr);
+    return icon;
+}
+
 }  // namespace
 
 Assets::Assets(SDL_Renderer* renderer) {
@@ -30,12 +43,15 @@ Assets::Assets(SDL_Renderer* renderer) {
     const fs::path images = root / "img";
     const fs::path fontFile = root / "fonts" / "Retro_Gaming.ttf";
 
-    background = loadTexture(renderer, images / "background_image_4k.png");
     logo = loadTexture(renderer, images / "swordfish_game_logo.png");
     button = loadTexture(renderer, images / "button_background.png");
     deleteButton = loadTexture(renderer, images / "button_delete_background.png");
     bonusBubble = loadTexture(renderer, images / "bonus_bubble.png");
+    menuBackground = loadTexture(renderer, images / "background_image_4k.png");
+    windowIcon = loadIcon(images / "swordfish_game_logo.png", 256);
 
+    // Découpées depuis Water_Item_Animated.gif par assets_creation/water_tiles/split_water_gif.py
+    water = loadAnimation(renderer, images / "Water", "Water");
     playerSwim = loadAnimation(renderer, images / "Walk_player", "Walk_player");
     playerIdle = loadAnimation(renderer, images / "Idle_player", "Idle_player");
     for (std::size_t species = 0; species < fish.size(); ++species) {

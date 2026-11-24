@@ -49,7 +49,8 @@ void Screen::drawButtons() const {
 }
 
 void Screen::drawMenuBackground() const {
-    SDL_RenderCopy(context_.renderer, context_.assets.background.get(), nullptr, nullptr);
+    // Image de fond étirée sur tout l'écran.
+    SDL_RenderCopy(context_.renderer, context_.assets.menuBackground.get(), nullptr, nullptr);
 }
 
 void Screen::dimScreen() const {

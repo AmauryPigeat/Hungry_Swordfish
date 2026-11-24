@@ -15,6 +15,7 @@ main()
      │   ├─ BoidSimulation    les bancs de poissons
      │   ├─ BonusField        les bulles bonus
      │   └─ Camera            la partie du monde visible
+     │   (drawWater           le fond d'eau animé de la partie, en tuiles)
      ├─ HighScores            fichier des scores
      └─ Screen (x5)           un objet par écran : accueil, pseudo, partie, pause, scores
          └─ Button, Text      briques d'interface
@@ -136,6 +137,8 @@ Charge **une seule fois** toutes les images et polices du jeu. Les autres classe
 
 - **Recherche des dossiers** : `findRootDirectory()` cherche un dossier contenant `img/` et `fonts/` à côté de l'exécutable, dans son dossier parent, puis dans le dossier courant. C'est pour ça que le jeu fonctionne lancé depuis `build/` comme depuis `cmake-build-debug/`.
 - **Animations** : une `Animation` est un `std::vector<TexturePtr>`. `loadAnimation` charge `prefix-1.png`, `prefix-2.png`… tant que les fichiers existent. Ajouter une image à une animation ne demande donc aucune modification du code.
+- **Fonds** : l'animation `water` (`img/Water/Water-1.png` à `Water-32.png`) sert de fond à la partie (voir `water.hpp`). Les menus (accueil, pseudo, scores) utilisent l'image fixe `menuBackground` (`img/background_image_4k.png`).
+- **Icône de la fenêtre** : `windowIcon` est le logo du jeu, chargé en mémoire (`loadSurface`) puis réduit en 256 × 256 (`loadIcon`), car l'image d'origine (1008 × 1008) est trop lourde pour certains systèmes. `Game` l'installe avec `SDL_SetWindowIcon` : c'est l'icône de la fenêtre et de la barre des tâches.
 - **Polices** : une seule police (`Retro_Gaming.ttf`) en deux tailles : 18 et 32 pt.
 
 ---
@@ -185,7 +188,7 @@ Comme les compteurs ne descendent jamais sous 0, le même `+=` marche aussi quan
 
 Dans l'ordre (le dernier dessiné passe devant) :
 
-1. **Le fond** : l'image couvre tout le monde. On la place comme n'importe quel objet du monde (`camera_.toScreen(monde)`), et SDL ne dessine que la partie qui tombe dans l'écran. En gros dézoom (mode dev), on voit du noir autour.
+1. **Le fond** : l'eau animée, en tuiles, sur tout le monde et seulement dans le monde (`drawWater`, voir plus bas). En gros dézoom (mode dev), on voit du noir autour.
 2. **La bordure rouge** (`drawWorldBorder`) : 4 bandes de `worldBorderThickness` (15 px) le long des bords, **à l'intérieur** du monde, pour qu'on la voie en jeu normal (la caméra ne sort jamais du monde). Son épaisseur suit le zoom, mais ne descend jamais sous 2 pixels à l'écran pour rester visible en mode dev.
 3. Les bulles, les poissons, puis le joueur.
 4. **Le pseudo et le score sous l'espadon** (`drawPlayerLabel`, voir ci-dessous).
@@ -339,7 +342,7 @@ Avec `config::showJawHitbox = true`, `drawJawHitbox()` dessine la mâchoire en b
 
 ## `BoidSimulation` (`boidSimulation.hpp/.cpp`)
 
-Les 1000 poissons, qui nagent en bancs grâce à l'algorithme des **boids**.
+Les poissons (1000 avec la carte par défaut, voir `config::fishCount`), qui nagent en bancs grâce à l'algorithme des **boids**.
 
 ### Les données
 
@@ -399,7 +402,7 @@ Les poissons de la case `c` sont ensuite `boidsByCell_[cellStart_[c]]` à `boids
 ### Manger et réapparaître
 
 - `eatTouching(jaw)` retire les poissons qui touchent la mâchoire tournée (`std::erase_if`) et renvoie leur nombre et leurs points. Le rectangle de chaque poisson est converti en `Quad` (`quadFromRect`) pour être comparé à la mâchoire avec `quadsOverlap`.
-- `respawnMissing(zone)` complète jusqu'à 1000 poissons, en tirant des positions au hasard jusqu'à en trouver une **hors** de la zone visible (une zone vide en mode dev, voir `GameSession::noSpawnArea`).
+- `respawnMissing(zone)` complète jusqu'à `config::fishCount` poissons, en tirant des positions au hasard jusqu'à en trouver une **hors** de la zone visible (une zone vide en mode dev, voir `GameSession::noSpawnArea`).
 - Chaque poisson démarre à une étape d'animation aléatoire, pour qu'ils ne battent pas tous des nageoires en même temps.
 
 ### Affichage
@@ -410,7 +413,7 @@ Seuls les poissons visibles à l'écran sont dessinés. Leur orientation se calc
 
 ## `BonusField` (`bonuses.hpp/.cpp`)
 
-Les 6 bulles bonus réparties dans le monde, de deux types.
+Les bulles bonus réparties dans le monde (6 avec la carte par défaut, voir `config::bonusCount`), de deux types.
 
 | Type (`BonusType`) | Bulle | Effet (appliqué par `GameSession`) |
 | --- | --- | --- |
@@ -426,6 +429,39 @@ const float bob = std::sin(time_ * bobSpeed + bonus.phase) * bobHeight;
 ```
 
 - **Étiquettes** : les deux textes (`>>`, `x2`) sont créés une fois dans le constructeur, puis réutilisés à chaque image. Ils sont dessinés avec `drawCenteredScaled` et le zoom de la caméra, pour rester à l'intérieur de la bulle quand on zoome ou dézoome.
+
+---
+
+## Fond d'eau (`water.hpp/.cpp`)
+
+Le fond est l'animation `Water_Item_Animated.gif` (32 images de 100 ms), répétée côte à côte comme du carrelage. C'est ce qui permet une carte aussi grande qu'on veut : on n'a pas besoin d'une image géante, il suffit de répéter la même petite tuile.
+
+### Préparer les images
+
+Le script `assets_creation/water_tiles/split_water_gif.py` découpe le GIF en `img/Water/Water-1.png` … `Water-32.png`, pour qu'elles soient chargées par `loadAnimation` comme les autres animations. Chaque frame du GIF a un **cadre transparent de 2 px** : le script le retire (300 × 300 → 296 × 296), sinon les tuiles collées laisseraient une grille de lignes vides. Pour changer d'eau, il suffit de remplacer le GIF et de relancer le script :
+
+```bash
+python3 assets_creation/water_tiles/split_water_gif.py
+```
+
+### Dessiner les tuiles (`drawWater`)
+
+`drawWater(renderer, water, camera, largeur, hauteur)` remplit le rectangle `(0, 0, largeur, hauteur)` du monde, vu par la caméra :
+
+1. **Image courante** : toutes les tuiles montrent la même image, choisie avec l'horloge de SDL (`SDL_GetTicks`). L'eau ondule donc partout en même temps, et bouge aussi pendant la pause.
+2. **Seulement les tuiles visibles** : à partir de la vue de la caméra, on calcule la première et la dernière colonne (et ligne) visibles, sans sortir du monde. Le coût dépend de la taille de l'écran, pas de celle de la carte (environ 60 tuiles par image en jeu normal). En gros dézoom en mode dev, ça peut faire des milliers de tuiles : le jeu rame, c'est accepté.
+
+   ```cpp
+   const int firstColumn = std::max(0, static_cast<int>(view.x / tile));
+   const int lastColumn = std::min(lastColumnInWorld, static_cast<int>((view.x + view.w) / tile));
+   ```
+
+3. **Dernière colonne / ligne coupée** : si la taille du monde n'est pas un multiple de la taille d'une tuile, la dernière tuile ne prend que le début de l'image (rectangle `source` réduit dans la même proportion). Rien n'est dessiné hors du monde.
+4. **Pas de fente entre les tuiles** : on convertit séparément le coin haut-gauche et le coin bas-droite de chaque tuile avec `camera.toScreen`. Deux tuiles voisines calculent ainsi exactement le même bord ; avec un calcul « position + largeur », un arrondi différent pourrait laisser une ligne d'un pixel quand on zoome.
+
+**Taille des tuiles** : les images font 296 × 296 (`waterImageSize`), mais elles sont dessinées plus petites, en 148 × 148 dans le monde (`waterTileSize`), ce qui rend les vagues plus fines. Pour garder des pixels nets, choisissez une taille qui divise 296 (148, 74, 37) : l'image est alors réduite d'un nombre entier de fois.
+
+Les menus n'utilisent pas l'eau : `Screen::drawMenuBackground` affiche l'image fixe `menuBackground`, étirée sur tout l'écran.
 
 ---
 
@@ -622,7 +658,18 @@ Le **top 10** des meilleures parties, en tableau.
 
 ## `config.hpp`
 
-Tous les réglages au même endroit, en `inline constexpr` : fenêtre, monde et bordure, pas de temps, vitesse, dash et zone d'apparition du joueur, position et taille de la mâchoire (et `showJawHitbox` pour l'afficher), croissance, caméra (dézoom auto, molette, transition), marge d'apparition et nombre de poissons et de bulles, effets des bonus, scores, couleurs de l'interface. Pour équilibrer le jeu, c'est le seul fichier à modifier dans la plupart des cas.
+Tous les réglages au même endroit, en `inline constexpr` : fenêtre, taille du monde et bordure, fond d'eau, pas de temps, vitesse, dash et zone d'apparition du joueur, position et taille de la mâchoire (et `showJawHitbox` pour l'afficher), croissance, caméra (dézoom auto, molette, transition), marge d'apparition et densité de poissons et de bulles, effets des bonus, scores, couleurs de l'interface. Pour équilibrer le jeu, c'est le seul fichier à modifier dans la plupart des cas.
+
+### Taille du monde
+
+`worldWidth` et `worldHeight` peuvent être changés librement d'une partie à l'autre (puis recompiler), avec au moins 500 × 500. Tout s'adapte : le fond d'eau (en tuiles), la caméra, la bordure, la grille des boids, et le **nombre de poissons et de bulles**, calculé à partir de la surface pour garder la même densité :
+
+```cpp
+inline constexpr float worldArea = worldWidth * worldHeight / 1000000.0f;  // en millions de px²
+inline constexpr std::size_t fishCount = static_cast<std::size_t>(worldArea * fishPerMillionPixels);
+```
+
+Avec la carte par défaut (3840 × 2160), ça donne 1000 poissons et 6 bulles.
 
 ### Mode dev
 

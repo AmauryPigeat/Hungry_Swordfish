@@ -41,6 +41,7 @@ public:
 };
 
 TexturePtr loadTexture(SDL_Renderer* renderer, const std::filesystem::path& file);
+SurfacePtr loadSurface(const std::filesystem::path& file);  // image en mémoire, pas sur la carte graphique
 FontPtr loadFont(const std::filesystem::path& file, int size);
 
 // Dossier qui contient l'exécutable.

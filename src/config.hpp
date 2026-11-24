@@ -15,8 +15,15 @@ inline constexpr int windowHeight = 720;
 inline constexpr const char* windowTitle = "Hungry Swordfish";
 
 // Monde dans lequel nagent le joueur et les poissons.
+// Taille libre (au moins 500 x 500) : changez-la puis recompilez. Le fond d'eau, la caméra,
+// la bordure, et le nombre de poissons et de bulles s'adaptent tout seuls.
 inline constexpr float worldWidth = 3840.0f;
 inline constexpr float worldHeight = 2160.0f;
+
+// Fond d'eau : tuiles de img/Water/, découpées par assets_creation/water_tiles/split_water_gif.py
+inline constexpr float waterImageSize = 296.0f;    // taille des images découpées, en pixels
+inline constexpr float waterTileSize = 74.0f;     // taille d'une tuile dans le monde (moitié de l'image)
+inline constexpr float waterFrameDuration = 0.1f;  // durée d'une image de l'animation
 
 // Bordure rouge le long des bords du monde : ni le joueur ni les poissons ne la traversent.
 inline constexpr float worldBorderThickness = 15.0f;
@@ -75,11 +82,19 @@ inline constexpr float devMaxZoom = 50.0f;
 // Poissons et bulles apparaissent au hasard, à au moins spawnEdgeMargin du bord du monde.
 inline constexpr float spawnEdgeMargin = 100.0f;
 
-// Poissons
-inline constexpr std::size_t fishCount = 1000;
+// Le nombre de poissons et de bulles suit la surface du monde, pour qu'une grande carte
+// ne soit pas vide. Densités en nombre par million de pixels carrés
+// (avec le monde de 3840 x 2160 : 1000 poissons et 6 bulles).
+inline constexpr float worldArea = worldWidth * worldHeight / 1000000.0f;
+inline constexpr float fishPerMillionPixels = 120.6f;
+inline constexpr float bonusesPerMillionPixels = 0.72f;
 
-// Bonus ramassables
-inline constexpr std::size_t bonusCount = 6;  // présents en même temps dans le monde
+// Poissons
+inline constexpr std::size_t fishCount = static_cast<std::size_t>(worldArea * fishPerMillionPixels);
+
+// Bonus ramassables, présents en même temps dans le monde (au moins 1)
+inline constexpr std::size_t bonusCount =
+    static_cast<std::size_t>(worldArea * bonusesPerMillionPixels) + 1;
 inline constexpr float bonusSize = 48.0f;
 inline constexpr float bonusEffectDuration = 5.0f;  // sprint et score x2
 inline constexpr float sprintMultiplier = 1.5f;

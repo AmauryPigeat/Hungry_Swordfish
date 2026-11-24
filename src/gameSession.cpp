@@ -1,6 +1,7 @@
 #include "gameSession.hpp"
 
 #include "config.hpp"
+#include "water.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -61,12 +62,9 @@ void GameSession::update(float dt, const PlayerInput& input) {
 }
 
 void GameSession::draw(SDL_Renderer* renderer) const {
-    // Le fond couvre tout le monde : on le place comme n'importe quel objet du monde,
-    // et SDL ne dessine que la partie qui tombe dans l'écran.
+    // Le fond : l'eau animée, en tuiles, seulement à l'intérieur du monde.
     // En gros dézoom (mode dev), on voit du noir autour du monde.
-    const SDL_FRect world{0.0f, 0.0f, config::worldWidth, config::worldHeight};
-    const SDL_FRect destination = camera_.toScreen(world);
-    SDL_RenderCopyF(renderer, assets_.background.get(), nullptr, &destination);
+    drawWater(renderer, assets_.water, camera_, config::worldWidth, config::worldHeight);
     drawWorldBorder(renderer);
 
     bonuses_.draw(renderer, camera_);

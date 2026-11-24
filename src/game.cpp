@@ -41,6 +41,9 @@ Game::Game()
       session_(renderer_.get(), assets_),
       highScores_(executableDirectory() / config::scoreFileName),
       context_{renderer_.get(), assets_, session_, highScores_} {
+    // Le logo du jeu comme icône de la fenêtre et de la barre des tâches.
+    SDL_SetWindowIcon(window_.get(), assets_.windowIcon.get());
+
     const auto addScreen = [this](ScreenId id, std::unique_ptr<Screen> screen) {
         screens_[static_cast<std::size_t>(id)] = std::move(screen);
     };

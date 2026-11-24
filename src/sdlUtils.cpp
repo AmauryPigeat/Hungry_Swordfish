@@ -41,6 +41,14 @@ TexturePtr loadTexture(SDL_Renderer* renderer, const std::filesystem::path& file
     return texture;
 }
 
+SurfacePtr loadSurface(const std::filesystem::path& file) {
+    SurfacePtr surface(IMG_Load(toUtf8(file).c_str()));
+    if (!surface) {
+        throw SdlError("Chargement de l'image " + file.string() + " impossible");
+    }
+    return surface;
+}
+
 FontPtr loadFont(const std::filesystem::path& file, int size) {
     FontPtr font(TTF_OpenFont(toUtf8(file).c_str(), size));
     if (!font) {

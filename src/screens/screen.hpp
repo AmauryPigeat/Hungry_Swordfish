@@ -47,7 +47,7 @@ protected:
                    SDL_Texture* background = nullptr);
     void drawButtons() const;
 
-    void drawMenuBackground() const;  // image de fond, sans défilement
+    void drawMenuBackground() const;  // image de fond des menus, sur tout l'écran
     void dimScreen() const;           // voile sombre par-dessus ce qui est déjà dessiné
 
     // Logo carré de côté logoSize en haut de l'écran, avec le titre du jeu dessous.

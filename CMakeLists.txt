@@ -22,6 +22,7 @@ add_executable(hungry_swordfish
     src/player.cpp
     src/boidSimulation.cpp
     src/bonuses.cpp
+    src/water.cpp
     src/assets.cpp
     src/sdlUtils.cpp
     src/text.cpp

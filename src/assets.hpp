@@ -17,12 +17,15 @@ public:
 
     explicit Assets(SDL_Renderer* renderer);
 
-    TexturePtr background;
     TexturePtr logo;
     TexturePtr button;
     TexturePtr deleteButton;
     TexturePtr bonusBubble;
 
+    TexturePtr menuBackground;  // fond des menus (accueil, pseudo, scores)
+    SurfacePtr windowIcon;      // icône de la fenêtre et de la barre des tâches (le logo)
+
+    Animation water;  // tuiles du fond de la partie, voir water.hpp
     Animation playerSwim;
     Animation playerIdle;
     std::array<Animation, fishSpeciesCount> fish;

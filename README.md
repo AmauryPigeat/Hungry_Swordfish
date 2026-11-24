@@ -51,6 +51,7 @@ Les scores sont enregistrés dans `scoreDB.txt`, à côté de l'exécutable.
 | `player` | Déplacement, dash, croissance et affichage de l'espadon |
 | `boidSimulation` | Bancs de poissons (boids + grille spatiale) |
 | `bonuses` | Bulles bonus : apparition, ramassage, affichage |
+| `water` | Fond d'eau animé de la partie, répété en tuiles (images découpées par `assets_creation/water_tiles/split_water_gif.py`) |
 | `screens/` | Un fichier par écran, `screen` contient ce qu'ils partagent |
 | `assets` | Chargement des images et polices |
 | `text`, `button` | Briques d'interface |
