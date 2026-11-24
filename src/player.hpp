@@ -14,8 +14,8 @@ class Player {
 public:
     explicit Player(const Assets& assets);
 
-    // Replace le joueur au centre du monde, à l'arrêt, à sa taille de départ.
-    void reset();
+    // Replace le joueur en startPosition, à l'arrêt, à sa taille de départ.
+    void reset(Vec2 startPosition);
 
     // speedMultiplier : 1 en temps normal, plus avec le bonus de sprint.
     void update(float dt, const PlayerInput& input, float speedMultiplier);
@@ -25,7 +25,8 @@ public:
     void grow(int kills);
 
     Vec2 position() const { return position_; }
-    SDL_FRect hitbox() const;     // tout le corps : ramasse les bonus
+    float scale() const { return scale_; }  // 1 au départ, grandit avec les poissons mangés
+    SDL_FRect hitbox() const;    // tout le corps : ramasse les bonus
     Quad jawHitbox() const;       // avant de la tête, tourne avec le poisson : mange les poissons
 
     // 0 juste après un dash, 1 quand il est de nouveau disponible.

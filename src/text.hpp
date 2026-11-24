@@ -21,6 +21,9 @@ public:
     void drawCentered(int centerX, int y) const;  // centré horizontalement
     void drawRightAligned(int rightX, int y) const;
 
+    // Centré sur (centerX, centerY), agrandi ou rétréci par scale (texte dans le monde zoomé).
+    void drawCenteredScaled(float centerX, float centerY, float scale) const;
+
 private:
     void render();
 

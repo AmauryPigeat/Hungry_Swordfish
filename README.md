@@ -20,6 +20,7 @@ Le sprint et le x2 se cumulent : reprendre une bulle encore active ajoute 5 s au
 | --- | --- |
 | Flèches ou ZQSD | Nager (diagonales possibles) |
 | Espace | Dash (recharge de 2 s, jauge en bas à gauche) |
+| Molette | Zoom / dézoom (la caméra recule aussi d'elle-même quand l'espadon grossit) |
 | Échap | Pause / reprendre |
 | F11 | Plein écran |
 

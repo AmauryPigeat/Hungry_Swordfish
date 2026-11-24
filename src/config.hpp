@@ -18,6 +18,10 @@ inline constexpr const char* windowTitle = "Hungry Swordfish";
 inline constexpr float worldWidth = 3840.0f;
 inline constexpr float worldHeight = 2160.0f;
 
+// Bordure rouge le long des bords du monde : ni le joueur ni les poissons ne la traversent.
+inline constexpr float worldBorderThickness = 15.0f;
+inline constexpr SDL_Color worldBorderColor{220, 30, 30, 255};
+
 // La logique du jeu avance à pas fixe, indépendamment des FPS d'affichage.
 inline constexpr float tickRate = 60.0f;
 inline constexpr float tickDuration = 1.0f / tickRate;
@@ -34,6 +38,7 @@ inline constexpr float playerSpeed = 450.0f;        // pixels par seconde
 inline constexpr float playerAcceleration = 10.0f;  // plus c'est grand, plus il réagit vite
 inline constexpr float playerAnimationFps = 10.0f;
 inline constexpr float playerHitboxSize = 50.0f;  // corps : ramasse les bulles bonus
+inline constexpr float playerSpawnMargin = 200.0f;  // le joueur apparaît au hasard, pas collé au bord
 
 // Mâchoire : seule cette zone, à l'avant de la tête, mange les poissons.
 // Décalage depuis le centre du sprite, image tournée vers la droite, à la taille de départ
@@ -52,6 +57,23 @@ inline constexpr float dashCooldown = 2.0f;  // compté depuis le début du dash
 // Croissance : l'espadon grossit à chaque poisson mangé (sprite et hitbox)
 inline constexpr float playerGrowthPerKill = 0.008f;  // +0,8 % de taille par poisson
 inline constexpr float playerMaxScale = 1.8f;
+
+// Caméra
+// Dézoom auto : quand l'espadon grossit, la caméra recule d'une partie de sa croissance.
+// 0 = pas de dézoom, 1 = l'espadon garde toujours la même taille à l'écran.
+inline constexpr float autoZoomStrength = 0.5f;
+inline constexpr float wheelZoomStep = 1.1f;  // un cran de molette = zoom x1,1
+inline constexpr float maxWheelZoom = 2.0f;   // zoom max à la molette, par rapport au zoom auto
+inline constexpr float zoomSmoothing = 8.0f;  // vitesse de la transition (plus grand = plus sec)
+
+// Mode dev :
+//   - pas de dézoom auto quand l'espadon grossit ;
+//   - la molette zoome et dézoome sans limite de jeu
+//     (bornée seulement entre devMinZoom et devMaxZoom pour ne pas diviser par zéro) ;
+//   - poissons et bulles peuvent apparaître dans la vue du joueur.
+inline constexpr bool devMode = true;
+inline constexpr float devMinZoom = 0.02f;
+inline constexpr float devMaxZoom = 50.0f;
 
 // Poissons
 inline constexpr std::size_t fishCount = 1000;

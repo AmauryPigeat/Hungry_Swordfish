@@ -16,7 +16,9 @@ void GameSession::start(const std::string& playerName) {
     score_ = 0;
     kills_ = 0;
 
-    player_.reset();
+    player_.reset(randomPlayerStart());
+    wheelZoom_ = 1.0f;
+    camera_.zoom = autoZoom();
     camera_.centerOn(player_.position());
     fish_.reset(noSpawnArea());
     bonuses_.reset(noSpawnArea());
@@ -32,6 +34,7 @@ void GameSession::update(float dt, const PlayerInput& input) {
     bonuses_.update(dt);
     if (inCountdown()) {
         countdown_ -= dt;
+        updateCamera(dt);  // la molette marche aussi pendant le décompte
         return;
     }
 
@@ -40,7 +43,7 @@ void GameSession::update(float dt, const PlayerInput& input) {
         speedMultiplier = config::sprintMultiplier;
     }
     player_.update(dt, input, speedMultiplier);
-    camera_.centerOn(player_.position());
+    updateCamera(dt);
 
     const EatResult eaten = fish_.eatTouching(player_.jawHitbox());
     int pointsMultiplier = 1;
@@ -64,29 +67,107 @@ void GameSession::update(float dt, const PlayerInput& input) {
 }
 
 void GameSession::draw(SDL_Renderer* renderer) const {
-    // Le fond couvre tout le monde : on en affiche la partie vue par la caméra.
-    int textureWidth = 0;
-    int textureHeight = 0;
-    SDL_QueryTexture(assets_.background.get(), nullptr, nullptr, &textureWidth, &textureHeight);
-    const float scaleX = static_cast<float>(textureWidth) / config::worldWidth;
-    const float scaleY = static_cast<float>(textureHeight) / config::worldHeight;
-    const SDL_Rect source{
-        static_cast<int>(camera_.x * scaleX),
-        static_cast<int>(camera_.y * scaleY),
-        static_cast<int>(config::windowWidth * scaleX),
-        static_cast<int>(config::windowHeight * scaleY),
-    };
-    SDL_RenderCopy(renderer, assets_.background.get(), &source, nullptr);
+    // Le fond couvre tout le monde : on le place comme n'importe quel objet du monde,
+    // et SDL ne dessine que la partie qui tombe dans l'écran.
+    // En gros dézoom (mode dev), on voit du noir autour du monde.
+    const SDL_FRect world{0.0f, 0.0f, config::worldWidth, config::worldHeight};
+    const SDL_FRect destination = camera_.toScreen(world);
+    SDL_RenderCopyF(renderer, assets_.background.get(), nullptr, &destination);
+    drawWorldBorder(renderer);
 
     bonuses_.draw(renderer, camera_);
     fish_.draw(renderer, camera_);
     player_.draw(renderer, camera_);
 }
 
+// Bordure rouge : 4 bandes le long des bords, à l'intérieur du monde.
+void GameSession::drawWorldBorder(SDL_Renderer* renderer) const {
+    const float w = config::worldWidth;
+    const float h = config::worldHeight;
+    const float t = config::worldBorderThickness;
+    const SDL_FRect bands[4] = {
+        {0.0f, 0.0f, w, t},      // haut
+        {0.0f, h - t, w, t},     // bas
+        {0.0f, 0.0f, t, h},      // gauche
+        {w - t, 0.0f, t, h},     // droite
+    };
+
+    const SDL_Color color = config::worldBorderColor;
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    for (int i = 0; i < 4; ++i) {
+        SDL_FRect onScreen = camera_.toScreen(bands[i]);
+
+        // En gros dézoom (mode dev), la bande deviendrait plus fine qu'un pixel et disparaîtrait :
+        // on lui garde au moins 2 pixels d'épaisseur à l'écran.
+        if (onScreen.w < 2.0f) {
+            onScreen.w = 2.0f;
+        }
+        if (onScreen.h < 2.0f) {
+            onScreen.h = 2.0f;
+        }
+        SDL_RenderFillRectF(renderer, &onScreen);
+    }
+}
+
+// Position de départ au hasard, à au moins playerSpawnMargin du bord.
+Vec2 GameSession::randomPlayerStart() {
+    std::uniform_real_distribution<float> randomX(config::playerSpawnMargin,
+                                                  config::worldWidth - config::playerSpawnMargin);
+    std::uniform_real_distribution<float> randomY(config::playerSpawnMargin,
+                                                  config::worldHeight - config::playerSpawnMargin);
+    return {randomX(random_), randomY(random_)};
+}
+
 SDL_FRect GameSession::noSpawnArea() const {
+    if (config::devMode) {
+        return {0.0f, 0.0f, 0.0f, 0.0f};  // aucun point n'est dans un rectangle vide
+    }
+
     constexpr float margin = 60.0f;
     const SDL_FRect view = camera_.view();
     return {view.x - margin, view.y - margin, view.w + 2 * margin, view.h + 2 * margin};
+}
+
+void GameSession::zoomWithWheel(int steps) {
+    // Chaque cran multiplie (ou divise) le zoom par wheelZoomStep.
+    for (int i = 0; i < steps; ++i) {
+        wheelZoom_ *= config::wheelZoomStep;
+    }
+    for (int i = 0; i > steps; --i) {
+        wheelZoom_ /= config::wheelZoomStep;
+    }
+
+    if (config::devMode) {
+        // Mode dev : pas de limite de jeu.
+        wheelZoom_ = std::clamp(wheelZoom_, config::devMinZoom, config::devMaxZoom);
+    } else {
+        // On ne peut pas dézoomer plus que le dézoom auto (wheelZoom_ = 1),
+        // seulement zoomer jusqu'à maxWheelZoom.
+        wheelZoom_ = std::clamp(wheelZoom_, 1.0f, config::maxWheelZoom);
+    }
+}
+
+float GameSession::autoZoom() const {
+    // Mode dev : pas de dézoom auto, seule la molette décide du zoom.
+    if (config::devMode) {
+        return 1.0f;
+    }
+
+    // Exemple avec autoZoomStrength = 0.5 : l'espadon a grossi de 80 % (scale = 1.8),
+    // la caméra recule de la moitié, soit 40 % : zoom = 1 / 1.4 = 0.71.
+    const float growth = player_.scale() - 1.0f;
+    return 1.0f / (1.0f + growth * config::autoZoomStrength);
+}
+
+void GameSession::updateCamera(float dt) {
+    const float wantedZoom = autoZoom() * wheelZoom_;
+
+    // Comme pour la vitesse du joueur : on se rapproche petit à petit du zoom voulu,
+    // pour que le zoom à la molette soit fluide et pas saccadé.
+    const float blend = std::min(1.0f, config::zoomSmoothing * dt);
+    camera_.zoom = camera_.zoom + (wantedZoom - camera_.zoom) * blend;
+
+    camera_.centerOn(player_.position());
 }
 
 // Les durées se cumulent : reprendre un bonus encore actif ajoute ses secondes au temps restant.

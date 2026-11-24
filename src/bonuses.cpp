@@ -46,16 +46,19 @@ void BonusField::draw(SDL_Renderer* renderer, const Camera& camera) const {
 
     for (const Bonus& bonus : bonuses_) {
         const float bob = std::sin(time_ * bobSpeed + bonus.phase) * bobHeight;
-        const Vec2 onScreen{bonus.position.x - camera.x, bonus.position.y - camera.y + bob};
-        const SDL_FRect destination = centeredRect(onScreen, config::bonusSize, config::bonusSize);
+        const Vec2 center{bonus.position.x, bonus.position.y + bob};
+        const SDL_FRect inWorld = centeredRect(center, config::bonusSize, config::bonusSize);
+        const SDL_FRect destination = camera.toScreen(inWorld);
         if (!overlaps(destination, screen)) {
             continue;
         }
 
         SDL_RenderCopyF(renderer, assets_.bonusBubble.get(), nullptr, &destination);
+
+        // L'étiquette suit le zoom, comme la bulle, pour rester à l'intérieur.
         const Text& label = labels_[static_cast<std::size_t>(bonus.type)];
-        label.drawCentered(static_cast<int>(onScreen.x),
-                           static_cast<int>(onScreen.y) - label.height() / 2);
+        const Vec2 onScreen = camera.toScreen(center);
+        label.drawCenteredScaled(onScreen.x, onScreen.y, camera.zoom);
     }
 }
 
@@ -65,6 +68,7 @@ Bonus BonusField::randomBonus(const SDL_FRect& hiddenArea) {
     std::uniform_real_distribution<float> randomPhase(0.0f, 6.2831853f);
     std::uniform_int_distribution<int> randomType(0, bonusTypeCount - 1);
 
+    // Même principe que pour les poissons (voir BoidSimulation::randomBoid).
     Bonus bonus{};
     do {
         bonus.position = {randomX(random_), randomY(random_)};

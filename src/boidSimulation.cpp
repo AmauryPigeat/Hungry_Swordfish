@@ -20,6 +20,7 @@ void BoidSimulation::update(Vec2 predator) {
         steer(boid, predator);
         boid.x += boid.vx;
         boid.y += boid.vy;
+        keepInsideBorder(boid);
 
         const auto frameCount = static_cast<int>(assets_.fish[boid.species].size());
         boid.animationTick =
@@ -54,8 +55,8 @@ void BoidSimulation::draw(SDL_Renderer* renderer, const Camera& camera) const {
 
     for (const Boid& boid : boids_) {
         const Species& species = speciesTable[boid.species];
-        const Vec2 onScreen{boid.x - camera.x, boid.y - camera.y};
-        const SDL_FRect destination = centeredRect(onScreen, species.width, species.height);
+        const SDL_FRect inWorld = centeredRect({boid.x, boid.y}, species.width, species.height);
+        const SDL_FRect destination = camera.toScreen(inWorld);
         if (!overlaps(destination, screen)) {
             continue;  // hors de l'écran : inutile de le dessiner
         }
@@ -178,12 +179,38 @@ void BoidSimulation::steer(Boid& boid, Vec2 predator) const {
     }
 }
 
+// Le poisson ne traverse jamais la bordure rouge : s'il la touche, il est remis contre elle
+// et repart dans l'autre sens. (steer le fait déjà tourner avant, ceci est la sécurité.)
+void BoidSimulation::keepInsideBorder(Boid& boid) {
+    // On prend la longueur du poisson des deux côtés : elle compte aussi quand il nage à la verticale.
+    const float margin = config::worldBorderThickness + speciesTable[boid.species].width / 2.0f;
+
+    if (boid.x < margin) {
+        boid.x = margin;
+        boid.vx = std::abs(boid.vx);
+    }
+    if (boid.x > config::worldWidth - margin) {
+        boid.x = config::worldWidth - margin;
+        boid.vx = -std::abs(boid.vx);
+    }
+    if (boid.y < margin) {
+        boid.y = margin;
+        boid.vy = std::abs(boid.vy);
+    }
+    if (boid.y > config::worldHeight - margin) {
+        boid.y = config::worldHeight - margin;
+        boid.vy = -std::abs(boid.vy);
+    }
+}
+
 Boid BoidSimulation::randomBoid(const SDL_FRect& hiddenArea) {
     std::uniform_real_distribution<float> randomX(edgeMargin, config::worldWidth - edgeMargin);
     std::uniform_real_distribution<float> randomY(edgeMargin, config::worldHeight - edgeMargin);
     std::uniform_real_distribution<float> randomVelocity(-3.0f, 3.0f);
     std::uniform_int_distribution<int> randomSpecies(0, static_cast<int>(speciesTable.size()) - 1);
 
+    // On tire des positions jusqu'à en trouver une hors de hiddenArea.
+    // En mode dev, hiddenArea est vide (voir GameSession::noSpawnArea) : le premier tirage convient.
     Boid boid{};
     do {
         boid.x = randomX(random_);

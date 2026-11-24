@@ -6,6 +6,7 @@
 #include "camera.hpp"
 #include "player.hpp"
 
+#include <random>
 #include <string>
 
 // Une partie : le joueur, les poissons, les bonus, le chrono et le score.
@@ -23,6 +24,9 @@ public:
     // Dessine le monde (fond, bonus, poissons, joueur), sans l'interface.
     void draw(SDL_Renderer* renderer) const;
 
+    // Molette : steps > 0 zoome, steps < 0 dézoome.
+    void zoomWithWheel(int steps);
+
     bool inCountdown() const { return countdown_ > 0.0f; }
     bool isOver() const { return timeLeft_ <= 0.0f; }
     float countdown() const { return countdown_; }
@@ -39,14 +43,24 @@ public:
 
 private:
     // Zone dans laquelle aucun poisson ni bonus ne doit apparaître : l'écran et un peu autour.
+    // En mode dev, zone vide : ils peuvent apparaître n'importe où.
     SDL_FRect noSpawnArea() const;
     void applyBonus(BonusType type);
+    Vec2 randomPlayerStart();
+    void drawWorldBorder(SDL_Renderer* renderer) const;
+
+    // Zoom voulu par le jeu selon la taille de l'espadon (1 au départ, plus petit ensuite).
+    float autoZoom() const;
+    // Rapproche le zoom de la caméra du zoom voulu, puis la recentre sur le joueur.
+    void updateCamera(float dt);
 
     const Assets& assets_;
     Player player_;
     BoidSimulation fish_;
     BonusField bonuses_;
     Camera camera_;
+    float wheelZoom_ = 1.0f;  // choix du joueur à la molette, multiplié par le zoom auto
+    std::mt19937 random_{std::random_device{}()};
 
     std::string playerName_;
     float countdown_ = 0.0f;

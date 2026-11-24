@@ -26,8 +26,10 @@ Tous les réglages (vitesses, durées, tailles, couleurs) sont dans `config.hpp`
 
 Deux systèmes de coordonnées sont utilisés :
 
-- **le monde** : 3840 × 2160 px, où vivent le joueur, les poissons et les bulles ;
+- **le monde** : 3840 × 2160 px, où vivent le joueur, les poissons et les bulles. Il est entouré d'une bordure rouge de 15 px que personne ne traverse ;
 - **l'écran** : toujours 1280 × 720 px « logiques ». SDL met à l'échelle si la fenêtre est plus grande ou en plein écran.
+
+La `Camera` fait le lien entre les deux, avec un **zoom** : dézoomée, elle montre une plus grande partie du monde dans le même écran.
 
 ---
 
@@ -144,15 +146,15 @@ Une partie : le joueur, les poissons, les bonus, la caméra, le chrono et le sco
 
 ### Démarrer une partie (`start`)
 
-Remet tout à zéro : chrono à 60 s, décompte à 3 s, effets de bonus à 0, joueur au centre, puis remplit le monde de poissons et de bulles **en dehors de l'écran** (`noSpawnArea()`).
+Remet tout à zéro : chrono à 60 s, décompte à 3 s, effets de bonus à 0, zoom à la molette à 1. Le joueur est placé **au hasard** sur la carte (`randomPlayerStart()`, à au moins `playerSpawnMargin` = 200 px du bord), la caméra se centre sur lui, puis le monde est rempli de poissons et de bulles **en dehors de l'écran** (`noSpawnArea()`).
 
 ### Un tick de jeu (`update`)
 
 Dans l'ordre :
 
 1. Les poissons nagent et les bulles flottent, **même pendant le décompte**.
-2. Pendant le décompte, le joueur ne bouge pas, et on s'arrête là.
-3. Le joueur se déplace (plus vite si le sprint est actif), et la caméra le suit.
+2. Pendant le décompte, le joueur ne bouge pas : on met seulement la caméra à jour (la molette marche déjà), et on s'arrête là.
+3. Le joueur se déplace (plus vite si le sprint est actif), puis la caméra ajuste son zoom et le suit (`updateCamera`).
 4. Les poissons qui touchent **la mâchoire** (`jawHitbox()`) sont mangés : kills, score (doublé si le x2 est actif) et croissance de l'espadon.
 5. Les bulles qui touchent **le corps** (`hitbox()`) appliquent leur effet (`applyBonus`).
 6. Les poissons et les bulles manquants réapparaissent hors de l'écran.
@@ -182,11 +184,41 @@ Comme les compteurs ne descendent jamais sous 0, le même `+=` marche aussi quan
 
 ### Affichage (`draw`)
 
-Dessine la partie visible de l'image de fond (le rectangle de la caméra, mis à l'échelle de la texture), puis les bulles, les poissons et le joueur, dans cet ordre (le dernier dessiné passe devant).
+Dans l'ordre (le dernier dessiné passe devant) :
+
+1. **Le fond** : l'image couvre tout le monde. On la place comme n'importe quel objet du monde (`camera_.toScreen(monde)`), et SDL ne dessine que la partie qui tombe dans l'écran. En gros dézoom (mode dev), on voit du noir autour.
+2. **La bordure rouge** (`drawWorldBorder`) : 4 bandes de `worldBorderThickness` (15 px) le long des bords, **à l'intérieur** du monde, pour qu'on la voie en jeu normal (la caméra ne sort jamais du monde). Son épaisseur suit le zoom, mais ne descend jamais sous 2 pixels à l'écran pour rester visible en mode dev.
+3. Les bulles, les poissons, puis le joueur.
+
+### Le zoom de la caméra
+
+Le zoom final est le produit de deux zooms :
+
+```cpp
+const float wantedZoom = autoZoom() * wheelZoom_;
+```
+
+- **Le zoom auto** (`autoZoom()`) : quand l'espadon grossit, la caméra recule d'une partie de sa croissance (`autoZoomStrength`). Avec 0,5 : l'espadon a grossi de 80 %, la caméra recule de 40 %, et le zoom vaut 1 / 1,4 = 0,71. L'espadon grandit donc toujours à l'écran, mais moins vite. En mode dev, le zoom auto est désactivé (il vaut toujours 1).
+
+  ```cpp
+  const float growth = player_.scale() - 1.0f;
+  return 1.0f / (1.0f + growth * config::autoZoomStrength);
+  ```
+
+- **Le zoom molette** (`wheelZoom_`, modifié par `zoomWithWheel`) : chaque cran multiplie ou divise par `wheelZoomStep` (1,1). En jeu normal, il reste entre 1 et `maxWheelZoom` (2) : on ne peut **pas dézoomer plus que le dézoom auto**, seulement zoomer. En mode dev, il va de `devMinZoom` (0,02) à `devMaxZoom` (50), sans limite de jeu.
+
+Le zoom de la caméra ne saute pas d'un coup à la valeur voulue : à chaque tick, il s'en rapproche d'une fraction, comme la vitesse du joueur. Le zoom à la molette est ainsi fluide.
+
+```cpp
+const float blend = std::min(1.0f, config::zoomSmoothing * dt);
+camera_.zoom = camera_.zoom + (wantedZoom - camera_.zoom) * blend;
+```
 
 ### Zone interdite à l'apparition (`noSpawnArea`)
 
-C'est le rectangle de la caméra, agrandi de 60 px de chaque côté : rien n'apparaît sous les yeux du joueur.
+C'est le rectangle de la vue de la caméra (qui grandit quand on dézoome), agrandi de 60 px de chaque côté : rien n'apparaît sous les yeux du joueur.
+
+En **mode dev**, la fonction renvoie un rectangle vide : aucun point n'est dedans, donc poissons et bulles peuvent apparaître n'importe où, même à l'écran. Sans ça, en dézoomant jusqu'à voir toute la carte, il n'y aurait plus aucune place hors de la vue et la recherche d'une position tournerait à l'infini. En jeu normal, ce cas n'arrive pas : le dézoom est limité au dézoom auto (vue de 1792 × 1008 au maximum, pour un monde de 3840 × 2160).
 
 ---
 
@@ -213,7 +245,14 @@ const float blend = std::min(1.0f, config::playerAcceleration * dt);
 velocity_ = velocity_ + (targetVelocity - velocity_) * blend;
 ```
 
-- Le joueur est ensuite bloqué dans les limites du monde, en tenant compte de sa taille actuelle.
+- Le joueur est ensuite bloqué à l'intérieur de la bordure rouge, en tenant compte de sa taille actuelle :
+
+```cpp
+const float margin = config::worldBorderThickness + config::playerWidth * scale_ / 2.0f;
+position_.x = std::clamp(position_.x, margin, config::worldWidth - margin);
+```
+
+- `reset(startPosition)` replace le joueur à la position donnée. C'est `GameSession` qui la tire au hasard à chaque partie.
 - `facing_` retient la dernière direction de nage. Elle sert au dash quand aucune touche n'est appuyée.
 
 ### Dash
@@ -294,6 +333,20 @@ Chaque tick, un poisson regarde ses voisins et ajuste sa vitesse :
 
 La vitesse est enfin bornée entre `minSpeed` et `maxSpeed`. Un poisson à l'arrêt complet est relancé.
 
+### Ne pas traverser la bordure (`keepInsideBorder`)
+
+La règle « Bords » fait tourner les poissons avant le bord, mais un poisson rapide ou qui fuit le joueur peut quand même aller trop loin. Après chaque déplacement, `keepInsideBorder` sert de sécurité : si le poisson touche la bordure rouge, il est remis contre elle et sa vitesse est inversée sur cet axe.
+
+```cpp
+const float margin = config::worldBorderThickness + speciesTable[boid.species].width / 2.0f;
+if (boid.x < margin) {
+    boid.x = margin;
+    boid.vx = std::abs(boid.vx);  // repart vers la droite
+}
+```
+
+La marge utilise la longueur du poisson sur les deux axes : elle compte aussi quand il nage à la verticale.
+
 ### La grille spatiale (`rebuildGrid`)
 
 Comparer chaque poisson à tous les autres ferait 1000 × 1000 = 1 million de tests par tick.
@@ -320,7 +373,7 @@ Les poissons de la case `c` sont ensuite `boidsByCell_[cellStart_[c]]` à `boids
 ### Manger et réapparaître
 
 - `eatTouching(jaw)` retire les poissons qui touchent la mâchoire tournée (`std::erase_if`) et renvoie leur nombre et leurs points. Le rectangle de chaque poisson est converti en `Quad` (`quadFromRect`) pour être comparé à la mâchoire avec `quadsOverlap`.
-- `respawnMissing(zone)` complète jusqu'à 1000 poissons, en tirant des positions au hasard jusqu'à en trouver une **hors** de la zone visible.
+- `respawnMissing(zone)` complète jusqu'à 1000 poissons, en tirant des positions au hasard jusqu'à en trouver une **hors** de la zone visible (une zone vide en mode dev, voir `GameSession::noSpawnArea`).
 - Chaque poisson démarre à une étape d'animation aléatoire, pour qu'ils ne battent pas tous des nageoires en même temps.
 
 ### Affichage
@@ -347,16 +400,32 @@ Les 6 bulles bonus réparties dans le monde.
 const float bob = std::sin(time_ * bobSpeed + bonus.phase) * bobHeight;
 ```
 
-- **Étiquettes** : les trois textes (`+5`, `>>`, `x2`) sont créés une fois dans le constructeur, puis réutilisés à chaque image.
+- **Étiquettes** : les trois textes (`+5`, `>>`, `x2`) sont créés une fois dans le constructeur, puis réutilisés à chaque image. Ils sont dessinés avec `drawCenteredScaled` et le zoom de la caméra, pour rester à l'intérieur de la bulle quand on zoome ou dézoome.
 
 ---
 
 ## `Camera` (`camera.hpp`)
 
-La partie du monde visible à l'écran, repérée par son coin haut-gauche.
+La partie du monde visible à l'écran, repérée par son coin haut-gauche (`x`, `y`) et son **zoom** :
 
-- `centerOn(cible)` centre la vue sur le joueur, **sans sortir du monde** : près d'un bord, la caméra s'arrête et c'est le joueur qui se décale à l'écran. La position est arrondie au pixel pour éviter que le fond « tremble ».
-- Pour dessiner un objet : `position à l'écran = position dans le monde - position de la caméra`.
+| `zoom` | Effet |
+| --- | --- |
+| 1 | taille normale : 1 pixel du monde = 1 pixel d'écran |
+| 0,5 | dézoom : on voit deux fois plus loin, tout paraît deux fois plus petit |
+| 2 | zoom : on voit deux fois moins loin, tout paraît deux fois plus grand |
+
+La valeur du zoom est choisie par `GameSession` (voir « Le zoom de la caméra »). La caméra, elle, sait seulement s'en servir :
+
+- `viewWidth()` / `viewHeight()` : taille de la partie du monde visible, `taille de l'écran / zoom`. Plus on dézoome, plus elle est grande.
+- `centerOn(cible)` centre la vue sur le joueur, **sans sortir du monde** : près d'un bord, la caméra s'arrête et c'est le joueur qui se décale à l'écran. Si la vue est plus grande que le monde (gros dézoom en mode dev), le monde est centré à l'écran. La position est arrondie au pixel d'écran pour éviter que le fond « tremble ».
+- `toScreen(...)` passe d'une position (ou d'un rectangle) du monde à une position à l'écran. **Tout ce qui est dessiné dans le monde passe par là** : fond, bordure, bulles, poissons, joueur, mâchoire de debug.
+
+```cpp
+// position à l'écran = (position dans le monde - position de la caméra) x zoom
+Vec2 toScreen(Vec2 world) const { return {(world.x - x) * zoom, (world.y - y) * zoom}; }
+```
+
+Pour un rectangle, le coin est converti de la même façon, et la largeur et la hauteur sont multipliées par le zoom.
 
 ---
 
@@ -426,7 +495,7 @@ timer_.set(std::to_string(seconds));  // appelé à chaque image, mais
                                       // la texture n'est refaite qu'une fois par seconde
 ```
 
-Trois façons de le dessiner : `draw` (coin haut-gauche), `drawCentered` (centré horizontalement) et `drawRightAligned` (aligné à droite, pour le chrono et les colonnes de nombres).
+Quatre façons de le dessiner : `draw` (coin haut-gauche), `drawCentered` (centré horizontalement), `drawRightAligned` (aligné à droite, pour le chrono et les colonnes de nombres) et `drawCenteredScaled` (centré sur un point, agrandi ou rétréci, pour un texte posé dans le monde qui doit suivre le zoom, comme les étiquettes des bulles).
 
 ---
 
@@ -480,6 +549,7 @@ Saisie du pseudo avant la partie.
 La partie en cours et son interface (HUD).
 
 - **Clavier** : `readDirection()` lit l'état des touches à chaque tick avec des **scancodes** (position physique). `SDL_SCANCODE_W` correspond donc à Z sur AZERTY et à W sur QWERTY : ZQSD et WASD marchent sans réglage.
+- **Molette** : chaque évènement `SDL_MOUSEWHEEL` est transmis à `session.zoomWithWheel(crans)` (vers le haut = zoom). Si le système inverse le sens de la molette (`SDL_MOUSEWHEEL_FLIPPED`), on inverse le nombre de crans.
 - **Dash** : l'appui sur Espace arrive par un évènement, entre deux ticks. Il est mémorisé dans `dashPressed_`, transmis au tick suivant, puis effacé : un appui déclenche un seul dash. `onEnter` le remet à `false` pour éviter un dash « fantôme » au retour de pause.
 - **Fin de partie** : quand le chrono atteint 0, la partie est enregistrée dans `HighScores` et on passe à `GameOverScreen`.
 - **Pause** : Échap, ou la fenêtre qui perd le focus.
@@ -515,6 +585,16 @@ Le **top 10** des meilleures parties, en tableau.
 
 ## `config.hpp`
 
-Tous les réglages au même endroit, en `inline constexpr` : fenêtre, monde, pas de temps, durée de partie, vitesse et dash du joueur, position et taille de la mâchoire (et `showJawHitbox` pour l'afficher), croissance, nombre de poissons et de bulles, effets des bonus, scores, couleurs de l'interface. Pour équilibrer le jeu, c'est le seul fichier à modifier dans la plupart des cas.
+Tous les réglages au même endroit, en `inline constexpr` : fenêtre, monde et bordure, pas de temps, durée de partie, vitesse, dash et zone d'apparition du joueur, position et taille de la mâchoire (et `showJawHitbox` pour l'afficher), croissance, caméra (dézoom auto, molette, transition), nombre de poissons et de bulles, effets des bonus, scores, couleurs de l'interface. Pour équilibrer le jeu, c'est le seul fichier à modifier dans la plupart des cas.
+
+### Mode dev
+
+`devMode = true` active trois choses, utiles pour tester :
+
+- pas de dézoom auto : `autoZoom()` renvoie toujours 1, seule la molette décide du zoom ;
+- la molette zoome et dézoome sans limite de jeu (entre `devMinZoom` et `devMaxZoom`) ;
+- poissons et bulles peuvent apparaître n'importe où, même sous les yeux du joueur.
+
+`showJawHitbox` est un réglage de debug séparé : il affiche la mâchoire en bleu.
 
 Les réglages fins du comportement des boids (distances, forces) sont, eux, des constantes privées de `BoidSimulation`, car ils ne concernent que cette classe.

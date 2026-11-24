@@ -37,6 +37,16 @@ void Text::drawRightAligned(int rightX, int y) const {
     draw(rightX - width_, y);
 }
 
+void Text::drawCenteredScaled(float centerX, float centerY, float scale) const {
+    if (!texture_) {
+        return;
+    }
+    const float width = static_cast<float>(width_) * scale;
+    const float height = static_cast<float>(height_) * scale;
+    const SDL_FRect destination{centerX - width / 2.0f, centerY - height / 2.0f, width, height};
+    SDL_RenderCopyF(renderer_, texture_.get(), nullptr, &destination);
+}
+
 void Text::render() {
     texture_.reset();
     width_ = 0;

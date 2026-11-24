@@ -6,11 +6,11 @@
 #include <cmath>
 
 Player::Player(const Assets& assets) : assets_(assets) {
-    reset();
+    reset({config::worldWidth / 2.0f, config::worldHeight / 2.0f});
 }
 
-void Player::reset() {
-    position_ = {config::worldWidth / 2.0f, config::worldHeight / 2.0f};
+void Player::reset(Vec2 startPosition) {
+    position_ = startPosition;
     velocity_ = {};
     facing_ = {1.0f, 0.0f};
     angle_ = 0.0f;
@@ -54,8 +54,8 @@ void Player::update(float dt, const PlayerInput& input, float speedMultiplier) {
     dashCooldownLeft_ = std::max(0.0f, dashCooldownLeft_ - dt);
     position_ = position_ + velocity_ * dt;
 
-    // Le joueur reste entièrement dans le monde.
-    const float margin = config::playerWidth * scale_ / 2.0f;
+    // Le joueur reste entièrement à l'intérieur de la bordure rouge.
+    const float margin = config::worldBorderThickness + config::playerWidth * scale_ / 2.0f;
     position_.x = std::clamp(position_.x, margin, config::worldWidth - margin);
     position_.y = std::clamp(position_.y, margin, config::worldHeight - margin);
 
@@ -76,9 +76,9 @@ void Player::draw(SDL_Renderer* renderer, const Camera& camera) const {
     const auto frame = static_cast<std::size_t>(animationTime_ * config::playerAnimationFps) %
                        animation->size();
 
-    const Vec2 onScreen = position_ - Vec2{camera.x, camera.y};
-    const SDL_FRect destination = centeredRect(onScreen, config::playerWidth * scale_,
-                                               config::playerHeight * scale_);
+    const SDL_FRect inWorld = centeredRect(position_, config::playerWidth * scale_,
+                                           config::playerHeight * scale_);
+    const SDL_FRect destination = camera.toScreen(inWorld);
 
     // L'image regarde vers la droite. Quand le poisson va vers la gauche,
     // on la retourne pour qu'il ne nage pas sur le dos.
@@ -105,7 +105,8 @@ void Player::drawJawHitbox(SDL_Renderer* renderer, const Camera& camera) const {
     SDL_Vertex vertices[4];
     SDL_FPoint outline[5];
     for (int i = 0; i < 4; ++i) {
-        const SDL_FPoint point{jaw.corners[i].x - camera.x, jaw.corners[i].y - camera.y};
+        const Vec2 onScreen = camera.toScreen(jaw.corners[i]);
+        const SDL_FPoint point{onScreen.x, onScreen.y};
         vertices[i].position = point;
         vertices[i].color = transparentBlue;
         vertices[i].tex_coord = {0.0f, 0.0f};

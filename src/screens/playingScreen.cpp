@@ -47,6 +47,16 @@ void PlayingScreen::handleEvent(const SDL_Event& event) {
         dashPressed_ = true;
     }
 
+    // Molette vers le haut : zoom, vers le bas : dézoom.
+    if (event.type == SDL_MOUSEWHEEL) {
+        int steps = event.wheel.y;
+        // Certains systèmes (souris "naturelles", macOS) inversent le sens de la molette.
+        if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
+            steps = -steps;
+        }
+        context_.session.zoomWithWheel(steps);
+    }
+
     const bool escapePressed =
         event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE && event.key.repeat == 0;
     const bool focusLost =

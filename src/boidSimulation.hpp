@@ -83,6 +83,7 @@ private:
     static int rowOf(float y);
     void rebuildGrid();
     void steer(Boid& boid, Vec2 predator) const;
+    static void keepInsideBorder(Boid& boid);
     Boid randomBoid(const SDL_FRect& hiddenArea);
 
     const Assets& assets_;
