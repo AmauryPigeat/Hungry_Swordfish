@@ -3,13 +3,17 @@
 #include "config.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 GameSession::GameSession(SDL_Renderer* renderer, const Assets& assets)
-    : assets_(assets), player_(assets), fish_(assets), bonuses_(renderer, assets) {}
+    : assets_(assets),
+      player_(assets),
+      fish_(assets),
+      bonuses_(renderer, assets),
+      playerLabel_(renderer, assets.smallFont.get(), config::white) {}
 
 void GameSession::start(const std::string& playerName) {
     playerName_ = playerName;
-    countdown_ = config::countdownDuration;
     sprintTimeLeft_ = 0.0f;
     doubleScoreTimeLeft_ = 0.0f;
     score_ = 0;
@@ -21,17 +25,12 @@ void GameSession::start(const std::string& playerName) {
     camera_.centerOn(player_.position());
     fish_.reset(noSpawnArea());
     bonuses_.reset(noSpawnArea());
+    updatePlayerLabel();
 }
 
 void GameSession::update(float dt, const PlayerInput& input) {
-    // Les poissons nagent et les bulles flottent déjà pendant le décompte, mais le joueur attend.
     fish_.update(player_.position());
     bonuses_.update(dt);
-    if (inCountdown()) {
-        countdown_ -= dt;
-        updateCamera(dt);  // la molette marche aussi pendant le décompte
-        return;
-    }
 
     float speedMultiplier = 1.0f;
     if (sprintTimeLeft_ > 0.0f) {
@@ -48,6 +47,7 @@ void GameSession::update(float dt, const PlayerInput& input) {
     kills_ += eaten.count;
     score_ += eaten.points * pointsMultiplier;
     player_.grow(eaten.count);
+    updatePlayerLabel();
 
     for (const BonusType type : bonuses_.takeTouching(player_.hitbox())) {
         applyBonus(type);
@@ -72,6 +72,32 @@ void GameSession::draw(SDL_Renderer* renderer) const {
     bonuses_.draw(renderer, camera_);
     fish_.draw(renderer, camera_);
     player_.draw(renderer, camera_);
+    drawPlayerLabel();
+}
+
+// Le texte n'est refait que si le score a changé (voir Text::set) :
+// on peut l'appeler à chaque tick sans rien coûter.
+void GameSession::updatePlayerLabel() {
+    playerLabel_.set(playerName_ + " : " + std::to_string(score_));
+}
+
+// Pseudo et score sous l'espadon. Le texte garde la même taille quel que soit le zoom,
+// pour rester lisible quand on dézoome.
+void GameSession::drawPlayerLabel() const {
+    // Le sprite tourne : on calcule jusqu'où il descend sous son centre.
+    //   - à l'horizontale : la moitié de sa hauteur
+    //   - à la verticale : la moitié de sa longueur
+    constexpr float degToRad = 0.01745329252f;
+    const float angle = player_.angle() * degToRad;
+    const float width = config::playerWidth * player_.scale();
+    const float height = config::playerHeight * player_.scale();
+    const float extent = std::abs(std::sin(angle)) * width + std::abs(std::cos(angle)) * height;
+
+    // Point juste sous le sprite, à l'écran.
+    const Vec2 center = player_.position();
+    const Vec2 below = camera_.toScreen(Vec2{center.x, center.y + extent / 2.0f});
+    constexpr int gap = 4;  // espace entre le sprite et le texte, en pixels d'écran
+    playerLabel_.drawCentered(static_cast<int>(below.x), static_cast<int>(below.y) + gap);
 }
 
 // Bordure rouge : 4 bandes le long des bords, à l'intérieur du monde.

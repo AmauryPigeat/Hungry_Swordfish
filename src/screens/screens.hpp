@@ -43,7 +43,6 @@ private:
     bool dashPressed_ = false;  // appui sur Espace pas encore transmis à la partie
     Text kills_;
     Text score_;
-    Text countdown_;
     Text sprintEffect_;
     Text doubleScoreEffect_;
     Text dashLabel_;

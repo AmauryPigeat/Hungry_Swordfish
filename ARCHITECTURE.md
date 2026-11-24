@@ -136,7 +136,7 @@ Charge **une seule fois** toutes les images et polices du jeu. Les autres classe
 
 - **Recherche des dossiers** : `findRootDirectory()` cherche un dossier contenant `img/` et `fonts/` à côté de l'exécutable, dans son dossier parent, puis dans le dossier courant. C'est pour ça que le jeu fonctionne lancé depuis `build/` comme depuis `cmake-build-debug/`.
 - **Animations** : une `Animation` est un `std::vector<TexturePtr>`. `loadAnimation` charge `prefix-1.png`, `prefix-2.png`… tant que les fichiers existent. Ajouter une image à une animation ne demande donc aucune modification du code.
-- **Polices** : une seule police (`Retro_Gaming.ttf`) en trois tailles : 18, 32 et 60 pt.
+- **Polices** : une seule police (`Retro_Gaming.ttf`) en deux tailles : 18 et 32 pt.
 
 ---
 
@@ -146,19 +146,18 @@ Une partie : le joueur, les poissons, les bonus, la caméra et le score. **Il n'
 
 ### Démarrer une partie (`start`)
 
-Remet tout à zéro : score, kills, décompte à 3 s, effets de bonus à 0, zoom à la molette à 1. Le joueur est placé **au hasard** sur la carte (`randomPlayerStart()`, à au moins `playerSpawnMargin` = 200 px du bord), la caméra se centre sur lui, puis le monde est rempli de poissons et de bulles **en dehors de l'écran** (`noSpawnArea()`).
+Remet tout à zéro : score, kills, effets de bonus à 0, zoom à la molette à 1. Le joueur est placé **au hasard** sur la carte (`randomPlayerStart()`, à au moins `playerSpawnMargin` = 200 px du bord), la caméra se centre sur lui, puis le monde est rempli de poissons et de bulles **en dehors de l'écran** (`noSpawnArea()`). Il n'y a **pas de décompte** : le joueur peut nager dès le premier tick.
 
 ### Un tick de jeu (`update`)
 
 Dans l'ordre :
 
-1. Les poissons nagent et les bulles flottent, **même pendant le décompte**.
-2. Pendant le décompte, le joueur ne bouge pas : on met seulement la caméra à jour (la molette marche déjà), et on s'arrête là.
-3. Le joueur se déplace (plus vite si le sprint est actif), puis la caméra ajuste son zoom et le suit (`updateCamera`).
-4. Les poissons qui touchent **la mâchoire** (`jawHitbox()`) sont mangés : kills, score (doublé si le x2 est actif) et croissance de l'espadon.
-5. Les bulles qui touchent **le corps** (`hitbox()`) appliquent leur effet (`applyBonus`).
-6. Les poissons et les bulles manquants réapparaissent hors de l'écran.
-7. Les temps restants des bonus (sprint, x2) diminuent de `dt`, sans descendre sous 0.
+1. Les poissons nagent et les bulles flottent.
+2. Le joueur se déplace (plus vite si le sprint est actif), puis la caméra ajuste son zoom et le suit (`updateCamera`).
+3. Les poissons qui touchent **la mâchoire** (`jawHitbox()`) sont mangés : kills, score (doublé si le x2 est actif) et croissance de l'espadon. Le texte sous l'espadon est mis à jour (`updatePlayerLabel`).
+4. Les bulles qui touchent **le corps** (`hitbox()`) appliquent leur effet (`applyBonus`).
+5. Les poissons et les bulles manquants réapparaissent hors de l'écran.
+6. Les temps restants des bonus (sprint, x2) diminuent de `dt`, sans descendre sous 0.
 
 ```cpp
 int pointsMultiplier = 1;
@@ -189,6 +188,22 @@ Dans l'ordre (le dernier dessiné passe devant) :
 1. **Le fond** : l'image couvre tout le monde. On la place comme n'importe quel objet du monde (`camera_.toScreen(monde)`), et SDL ne dessine que la partie qui tombe dans l'écran. En gros dézoom (mode dev), on voit du noir autour.
 2. **La bordure rouge** (`drawWorldBorder`) : 4 bandes de `worldBorderThickness` (15 px) le long des bords, **à l'intérieur** du monde, pour qu'on la voie en jeu normal (la caméra ne sort jamais du monde). Son épaisseur suit le zoom, mais ne descend jamais sous 2 pixels à l'écran pour rester visible en mode dev.
 3. Les bulles, les poissons, puis le joueur.
+4. **Le pseudo et le score sous l'espadon** (`drawPlayerLabel`, voir ci-dessous).
+
+### Pseudo et score sous l'espadon (`playerLabel_`)
+
+Un `Text` « pseudo : score » suit l'espadon, juste sous son sprite.
+
+- **Mise à jour** : `updatePlayerLabel()` est appelée au démarrage et à chaque tick, après les poissons mangés. Elle appelle `playerLabel_.set(...)`, qui ne refait la texture que si le texte a changé : le score affiché est donc toujours à jour, sans coût quand il ne bouge pas. Cette mise à jour se fait dans `update` et pas dans `draw`, car `draw` est `const` et ne peut pas modifier le texte.
+- **Position** : le sprite tourne, donc la distance entre son centre et son bas change selon l'orientation : la moitié de sa hauteur quand il nage à l'horizontale, la moitié de sa longueur quand il nage à la verticale. On la calcule avec la même formule que pour un rectangle tourné :
+
+  ```cpp
+  const float extent = std::abs(std::sin(angle)) * width + std::abs(std::cos(angle)) * height;
+  const Vec2 below = camera_.toScreen(Vec2{center.x, center.y + extent / 2.0f});
+  ```
+
+  Le texte est centré sous ce point, 4 pixels plus bas.
+- **Taille** : le texte garde la même taille à l'écran quel que soit le zoom, pour rester lisible quand on dézoome (contrairement aux étiquettes des bulles, qui suivent le zoom).
 
 ### Le zoom de la caméra
 
@@ -563,8 +578,8 @@ La partie en cours et son interface (HUD).
 - **Dash** : l'appui sur Espace arrive par un évènement, entre deux ticks. Il est mémorisé dans `dashPressed_`, transmis au tick suivant, puis effacé : un appui déclenche un seul dash. `onEnter` le remet à `false` pour éviter un dash « fantôme » au retour de pause.
 - **Pas de fin de partie** ici : sans limite de temps, la partie ne se termine que par HOME dans le menu pause.
 - **Pause** : Échap, ou la fenêtre qui perd le focus.
-- **HUD** : kills et score en haut à gauche, effets actifs dessous (« SPRINT 4 », « SCORE x2 7 »), jauge de dash en bas à gauche (blanche en recharge, verte quand le dash est prêt). Pendant le décompte, l'écran est assombri et affiche 3, 2, 1.
-- Les secondes affichées (décompte, bonus) sont arrondies **au-dessus** : il reste 2,3 s, on affiche « 3 ».
+- **HUD** : kills et score en haut à gauche, effets actifs dessous (« SPRINT 4 », « SCORE x2 7 »), jauge de dash en bas à gauche (blanche en recharge, verte quand le dash est prêt). Le pseudo et le score sous l'espadon sont dessinés par `GameSession`, avec le monde.
+- Les secondes affichées des bonus sont arrondies **au-dessus** : il reste 2,3 s, on affiche « 3 ».
 
 ### `PausedScreen`
 
@@ -607,7 +622,7 @@ Le **top 10** des meilleures parties, en tableau.
 
 ## `config.hpp`
 
-Tous les réglages au même endroit, en `inline constexpr` : fenêtre, monde et bordure, pas de temps, décompte de départ, vitesse, dash et zone d'apparition du joueur, position et taille de la mâchoire (et `showJawHitbox` pour l'afficher), croissance, caméra (dézoom auto, molette, transition), marge d'apparition et nombre de poissons et de bulles, effets des bonus, scores, couleurs de l'interface. Pour équilibrer le jeu, c'est le seul fichier à modifier dans la plupart des cas.
+Tous les réglages au même endroit, en `inline constexpr` : fenêtre, monde et bordure, pas de temps, vitesse, dash et zone d'apparition du joueur, position et taille de la mâchoire (et `showJawHitbox` pour l'afficher), croissance, caméra (dézoom auto, molette, transition), marge d'apparition et nombre de poissons et de bulles, effets des bonus, scores, couleurs de l'interface. Pour équilibrer le jeu, c'est le seul fichier à modifier dans la plupart des cas.
 
 ### Mode dev
 

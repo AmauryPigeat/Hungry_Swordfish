@@ -32,7 +32,6 @@ PlayingScreen::PlayingScreen(GameContext& context)
     : Screen(context),
       kills_(context.renderer, context.assets.mediumFont.get(), config::white),
       score_(context.renderer, context.assets.mediumFont.get(), config::white),
-      countdown_(context.renderer, context.assets.largeFont.get(), config::red),
       sprintEffect_(context.renderer, context.assets.smallFont.get(), config::sprintBonusColor),
       doubleScoreEffect_(context.renderer, context.assets.smallFont.get(),
                          config::scoreBonusColor),
@@ -67,8 +66,7 @@ void PlayingScreen::handleEvent(const SDL_Event& event) {
 
 void PlayingScreen::update(float dt) {
     GameSession& session = context_.session;
-    // L'appui est consommé par ce tick : il ne déclenche qu'un seul dash,
-    // et il est perdu s'il tombe pendant le décompte.
+    // L'appui est consommé par ce tick : il ne déclenche qu'un seul dash.
     session.update(dt, {readDirection(), dashPressed_});
     dashPressed_ = false;
 }
@@ -95,13 +93,7 @@ void PlayingScreen::draw() {
         doubleScoreEffect_.draw(hudMargin, effectY);
     }
 
-    if (session.inCountdown()) {
-        dimScreen();
-        countdown_.set(std::to_string(secondsToDisplay(session.countdown())));
-        countdown_.drawCentered(screenCenterX, (config::windowHeight - countdown_.height()) / 2);
-    } else {
-        drawDashGauge();
-    }
+    drawDashGauge();
 }
 
 // Barre en bas à gauche : se remplit pendant la recharge, passe en vert quand le dash est prêt.

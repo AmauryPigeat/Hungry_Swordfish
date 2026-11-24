@@ -26,6 +26,7 @@ public:
 
     Vec2 position() const { return position_; }
     float scale() const { return scale_; }  // 1 au départ, grandit avec les poissons mangés
+    float angle() const { return angle_; }  // orientation en degrés, 0 = vers la droite
     SDL_FRect hitbox() const;    // tout le corps : ramasse les bonus
     Quad jawHitbox() const;       // avant de la tête, tourne avec le poisson : mange les poissons
 

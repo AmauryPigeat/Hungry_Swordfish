@@ -26,8 +26,8 @@ inline constexpr SDL_Color worldBorderColor{220, 30, 30, 255};
 inline constexpr float tickRate = 60.0f;
 inline constexpr float tickDuration = 1.0f / tickRate;
 
-// Déroulement d'une partie : pas de limite de temps, la partie dure jusqu'à HOME (menu pause).
-inline constexpr float countdownDuration = 3.0f;  // décompte 3, 2, 1 avant de pouvoir nager
+// Déroulement d'une partie : pas de décompte ni de limite de temps,
+// la partie commence tout de suite et dure jusqu'à HOME (menu pause).
 
 // Joueur
 inline constexpr float playerWidth = 88.0f;
@@ -101,6 +101,6 @@ inline constexpr SDL_Color scoreBonusColor{170, 0, 120, 255};
 inline constexpr SDL_Color gold{255, 205, 60, 255};  // podium de l'écran des scores
 inline constexpr SDL_Color silver{205, 215, 225, 255};
 inline constexpr SDL_Color bronze{215, 140, 75, 255};
-inline constexpr Uint8 dimOpacity = 200;  // assombrissement (pause, décompte)
+inline constexpr Uint8 dimOpacity = 200;  // assombrissement (pause, fond de la jauge de dash)
 
 }  // namespace config

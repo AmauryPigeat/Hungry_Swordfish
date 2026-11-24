@@ -5,6 +5,7 @@
 #include "bonuses.hpp"
 #include "camera.hpp"
 #include "player.hpp"
+#include "text.hpp"
 
 #include <random>
 #include <string>
@@ -15,7 +16,7 @@ class GameSession {
 public:
     GameSession(SDL_Renderer* renderer, const Assets& assets);
 
-    // Démarre une nouvelle partie (décompte puis chrono).
+    // Démarre une nouvelle partie : le joueur peut nager tout de suite.
     void start(const std::string& playerName);
 
     // Avance la partie de dt secondes. input : ce que demande le joueur.
@@ -27,8 +28,6 @@ public:
     // Molette : steps > 0 zoome, steps < 0 dézoome.
     void zoomWithWheel(int steps);
 
-    bool inCountdown() const { return countdown_ > 0.0f; }
-    float countdown() const { return countdown_; }
 
     // Temps restant des effets de bonus, 0 s'ils sont inactifs.
     float sprintTimeLeft() const { return sprintTimeLeft_; }
@@ -47,6 +46,10 @@ private:
     Vec2 randomPlayerStart();
     void drawWorldBorder(SDL_Renderer* renderer) const;
 
+    // Pseudo et score affichés sous l'espadon.
+    void updatePlayerLabel();
+    void drawPlayerLabel() const;
+
     // Zoom voulu par le jeu selon la taille de l'espadon (1 au départ, plus petit ensuite).
     float autoZoom() const;
     // Rapproche le zoom de la caméra du zoom voulu, puis la recentre sur le joueur.
@@ -57,11 +60,11 @@ private:
     BoidSimulation fish_;
     BonusField bonuses_;
     Camera camera_;
+    Text playerLabel_;  // "pseudo : score", sous l'espadon
     float wheelZoom_ = 1.0f;  // choix du joueur à la molette, multiplié par le zoom auto
     std::mt19937 random_{std::random_device{}()};
 
     std::string playerName_;
-    float countdown_ = 0.0f;
     float sprintTimeLeft_ = 0.0f;
     float doubleScoreTimeLeft_ = 0.0f;
     int score_ = 0;

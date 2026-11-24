@@ -45,7 +45,6 @@ Assets::Assets(SDL_Renderer* renderer) {
 
     smallFont = loadFont(fontFile, 18);
     mediumFont = loadFont(fontFile, 32);
-    largeFont = loadFont(fontFile, 60);
 }
 
 fs::path Assets::findRootDirectory() {

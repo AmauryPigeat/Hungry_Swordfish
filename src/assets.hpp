@@ -29,7 +29,6 @@ public:
 
     FontPtr smallFont;   // lignes de score, aides
     FontPtr mediumFont;  // texte courant, boutons
-    FontPtr largeFont;   // décompte de début de partie
 
 private:
     // Dossier qui contient img/ et fonts/ : à côté de l'exécutable,
