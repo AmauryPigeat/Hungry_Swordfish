@@ -32,7 +32,6 @@ add_executable(hungry_swordfish
     src/screens/nameEntryScreen.cpp
     src/screens/playingScreen.cpp
     src/screens/pausedScreen.cpp
-    src/screens/gameOverScreen.cpp
     src/screens/scoresScreen.cpp
 )
 

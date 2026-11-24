@@ -5,6 +5,20 @@
 #include <algorithm>
 #include <cmath>
 
+namespace {
+
+// Garde une coordonnée entre margin et worldSize - margin.
+// Si l'espadon est devenu plus grand que le monde sur cet axe, il n'y a plus de place :
+// on le garde au milieu (std::clamp ne marche pas quand le minimum dépasse le maximum).
+float keepInside(float value, float margin, float worldSize) {
+    if (2.0f * margin >= worldSize) {
+        return worldSize / 2.0f;
+    }
+    return std::clamp(value, margin, worldSize - margin);
+}
+
+}  // namespace
+
 Player::Player(const Assets& assets) : assets_(assets) {
     reset({config::worldWidth / 2.0f, config::worldHeight / 2.0f});
 }
@@ -56,8 +70,8 @@ void Player::update(float dt, const PlayerInput& input, float speedMultiplier) {
 
     // Le joueur reste entièrement à l'intérieur de la bordure rouge.
     const float margin = config::worldBorderThickness + config::playerWidth * scale_ / 2.0f;
-    position_.x = std::clamp(position_.x, margin, config::worldWidth - margin);
-    position_.y = std::clamp(position_.y, margin, config::worldHeight - margin);
+    position_.x = keepInside(position_.x, margin, config::worldWidth);
+    position_.y = keepInside(position_.y, margin, config::worldHeight);
 
     // À l'arrêt, on garde la dernière orientation.
     if (swimming_ || dashTimeLeft_ > 0.0f) {
@@ -123,8 +137,7 @@ void Player::drawJawHitbox(SDL_Renderer* renderer, const Camera& camera) const {
 }
 
 void Player::grow(int kills) {
-    scale_ = std::min(config::playerMaxScale,
-                      scale_ + static_cast<float>(kills) * config::playerGrowthPerKill);
+    scale_ += static_cast<float>(kills) * config::playerGrowthPerKill;
 }
 
 SDL_FRect Player::hitbox() const {

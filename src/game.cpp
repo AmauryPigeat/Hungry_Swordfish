@@ -48,7 +48,6 @@ Game::Game()
     addScreen(ScreenId::NameEntry, std::make_unique<NameEntryScreen>(context_));
     addScreen(ScreenId::Playing, std::make_unique<PlayingScreen>(context_));
     addScreen(ScreenId::Paused, std::make_unique<PausedScreen>(context_));
-    addScreen(ScreenId::GameOver, std::make_unique<GameOverScreen>(context_));
     addScreen(ScreenId::Scores, std::make_unique<ScoresScreen>(context_));
 
     SDL_StopTextInput();  // activé par défaut sur PC, seul l'écran du pseudo en a besoin

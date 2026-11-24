@@ -32,7 +32,6 @@ PlayingScreen::PlayingScreen(GameContext& context)
     : Screen(context),
       kills_(context.renderer, context.assets.mediumFont.get(), config::white),
       score_(context.renderer, context.assets.mediumFont.get(), config::white),
-      timer_(context.renderer, context.assets.mediumFont.get(), config::white),
       countdown_(context.renderer, context.assets.largeFont.get(), config::red),
       sprintEffect_(context.renderer, context.assets.smallFont.get(), config::sprintBonusColor),
       doubleScoreEffect_(context.renderer, context.assets.smallFont.get(),
@@ -72,11 +71,6 @@ void PlayingScreen::update(float dt) {
     // et il est perdu s'il tombe pendant le décompte.
     session.update(dt, {readDirection(), dashPressed_});
     dashPressed_ = false;
-
-    if (session.isOver()) {
-        context_.highScores.add({session.playerName(), session.kills(), session.score()});
-        goTo(ScreenId::GameOver);
-    }
 }
 
 void PlayingScreen::draw() {
@@ -106,14 +100,6 @@ void PlayingScreen::draw() {
         countdown_.set(std::to_string(secondsToDisplay(session.countdown())));
         countdown_.drawCentered(screenCenterX, (config::windowHeight - countdown_.height()) / 2);
     } else {
-        const int seconds = secondsToDisplay(session.timeLeft());
-        timer_.set(std::to_string(seconds));
-        if (seconds < config::lowTimeThreshold) {
-            timer_.setColor(config::red);
-        } else {
-            timer_.setColor(config::white);
-        }
-        timer_.drawRightAligned(config::windowWidth - hudMargin, hudMargin);
         drawDashGauge();
     }
 }

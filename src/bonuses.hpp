@@ -10,12 +10,11 @@
 #include <vector>
 
 enum class BonusType : std::uint8_t {
-    ExtraTime,    // du temps en plus au chrono
     Sprint,       // nage plus vite pendant quelques secondes
     DoubleScore,  // points multipliés pendant quelques secondes
 };
 
-inline constexpr int bonusTypeCount = 3;
+inline constexpr int bonusTypeCount = 2;
 
 struct Bonus {
     Vec2 position;  // centre de la bulle, en coordonnées du monde
@@ -44,7 +43,6 @@ public:
     void draw(SDL_Renderer* renderer, const Camera& camera) const;
 
 private:
-    static constexpr float edgeMargin = 100.0f;
     static constexpr float bobHeight = 6.0f;  // amplitude du flottement, en pixels
     static constexpr float bobSpeed = 2.0f;   // en radians par seconde
 

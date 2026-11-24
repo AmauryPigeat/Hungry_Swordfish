@@ -26,10 +26,8 @@ inline constexpr SDL_Color worldBorderColor{220, 30, 30, 255};
 inline constexpr float tickRate = 60.0f;
 inline constexpr float tickDuration = 1.0f / tickRate;
 
-// Déroulement d'une partie
-inline constexpr float countdownDuration = 3.0f;
-inline constexpr float roundDuration = 60.0f;
-inline constexpr int lowTimeThreshold = 10;  // le chrono passe en rouge en dessous
+// Déroulement d'une partie : pas de limite de temps, la partie dure jusqu'à HOME (menu pause).
+inline constexpr float countdownDuration = 3.0f;  // décompte 3, 2, 1 avant de pouvoir nager
 
 // Joueur
 inline constexpr float playerWidth = 88.0f;
@@ -54,9 +52,8 @@ inline constexpr float dashSpeedMultiplier = 2.5f;
 inline constexpr float dashDuration = 0.25f;
 inline constexpr float dashCooldown = 2.0f;  // compté depuis le début du dash
 
-// Croissance : l'espadon grossit à chaque poisson mangé (sprite et hitbox)
+// Croissance : l'espadon grossit à chaque poisson mangé (sprite et hitbox), sans limite
 inline constexpr float playerGrowthPerKill = 0.008f;  // +0,8 % de taille par poisson
-inline constexpr float playerMaxScale = 1.8f;
 
 // Caméra
 // Dézoom auto : quand l'espadon grossit, la caméra recule d'une partie de sa croissance.
@@ -75,6 +72,9 @@ inline constexpr bool devMode = true;
 inline constexpr float devMinZoom = 0.02f;
 inline constexpr float devMaxZoom = 50.0f;
 
+// Poissons et bulles apparaissent au hasard, à au moins spawnEdgeMargin du bord du monde.
+inline constexpr float spawnEdgeMargin = 100.0f;
+
 // Poissons
 inline constexpr std::size_t fishCount = 1000;
 
@@ -82,7 +82,6 @@ inline constexpr std::size_t fishCount = 1000;
 inline constexpr std::size_t bonusCount = 6;  // présents en même temps dans le monde
 inline constexpr float bonusSize = 48.0f;
 inline constexpr float bonusEffectDuration = 5.0f;  // sprint et score x2
-inline constexpr float bonusExtraTime = 5.0f;       // secondes ajoutées au chrono
 inline constexpr float sprintMultiplier = 1.5f;
 inline constexpr int scoreMultiplier = 2;
 
@@ -97,7 +96,6 @@ inline constexpr int buttonHeight = 64;
 inline constexpr SDL_Color white{255, 255, 255, 255};
 inline constexpr SDL_Color mint{168, 255, 209, 255};
 inline constexpr SDL_Color red{200, 50, 50, 255};
-inline constexpr SDL_Color timeBonusColor{230, 120, 0, 255};
 inline constexpr SDL_Color sprintBonusColor{20, 60, 160, 255};
 inline constexpr SDL_Color scoreBonusColor{170, 0, 120, 255};
 inline constexpr SDL_Color gold{255, 205, 60, 255};  // podium de l'écran des scores

@@ -13,7 +13,7 @@ PausedScreen::PausedScreen(GameContext& context)
                "THE GAME IS PAUSED") {
     const std::vector<SDL_Rect> areas = buttonRow(3, titleBottom(logoSize, logoGap) + 250);
     addButton("RESUME", areas[0], [this] { goTo(ScreenId::Playing); });
-    addButton("HOME", areas[1], [this] { goTo(ScreenId::Welcome); });
+    addButton("HOME", areas[1], [this] { endGame(); });
     addButton("QUIT", areas[2], [this] { goTo(ScreenId::Quit); });
 }
 
@@ -24,6 +24,15 @@ void PausedScreen::handleEvent(const SDL_Event& event) {
         event.key.repeat == 0) {
         goTo(ScreenId::Playing);
     }
+}
+
+// La partie n'a pas de fin : c'est HOME qui la termine.
+// Le score rejoint le classement, puis on revient à l'accueil. La partie ne peut plus être
+// reprise : START passe par la saisie du pseudo, qui en lance une nouvelle (tout remis à zéro).
+void PausedScreen::endGame() {
+    const GameSession& session = context_.session;
+    context_.highScores.add({session.playerName(), session.kills(), session.score()});
+    goTo(ScreenId::Welcome);
 }
 
 void PausedScreen::draw() {

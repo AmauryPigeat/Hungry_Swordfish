@@ -16,7 +16,7 @@ main()
      │   ├─ BonusField        les bulles bonus
      │   └─ Camera            la partie du monde visible
      ├─ HighScores            fichier des scores
-     └─ Screen (x6)           un objet par écran : accueil, pseudo, partie, pause, fin, scores
+     └─ Screen (x5)           un objet par écran : accueil, pseudo, partie, pause, scores
          └─ Button, Text      briques d'interface
 ```
 
@@ -51,7 +51,7 @@ try {
 
 ## `Game` (`game.hpp/.cpp`)
 
-Le programme lui-même : la fenêtre, le renderer, les ressources, les six écrans et la boucle principale.
+Le programme lui-même : la fenêtre, le renderer, les ressources, les cinq écrans et la boucle principale.
 
 ### Ordre des membres
 
@@ -142,11 +142,11 @@ Charge **une seule fois** toutes les images et polices du jeu. Les autres classe
 
 ## `GameSession` (`gameSession.hpp/.cpp`)
 
-Une partie : le joueur, les poissons, les bonus, la caméra, le chrono et le score. Cette classe ne connaît que les règles du jeu : pas de clavier, pas de menus, pas de HUD.
+Une partie : le joueur, les poissons, les bonus, la caméra et le score. **Il n'y a pas de limite de temps** : la partie dure jusqu'à ce que le joueur la quitte avec HOME dans le menu pause (voir `PausedScreen`). Cette classe ne connaît que les règles du jeu : pas de clavier, pas de menus, pas de HUD.
 
 ### Démarrer une partie (`start`)
 
-Remet tout à zéro : chrono à 60 s, décompte à 3 s, effets de bonus à 0, zoom à la molette à 1. Le joueur est placé **au hasard** sur la carte (`randomPlayerStart()`, à au moins `playerSpawnMargin` = 200 px du bord), la caméra se centre sur lui, puis le monde est rempli de poissons et de bulles **en dehors de l'écran** (`noSpawnArea()`).
+Remet tout à zéro : score, kills, décompte à 3 s, effets de bonus à 0, zoom à la molette à 1. Le joueur est placé **au hasard** sur la carte (`randomPlayerStart()`, à au moins `playerSpawnMargin` = 200 px du bord), la caméra se centre sur lui, puis le monde est rempli de poissons et de bulles **en dehors de l'écran** (`noSpawnArea()`).
 
 ### Un tick de jeu (`update`)
 
@@ -158,7 +158,7 @@ Dans l'ordre :
 4. Les poissons qui touchent **la mâchoire** (`jawHitbox()`) sont mangés : kills, score (doublé si le x2 est actif) et croissance de l'espadon.
 5. Les bulles qui touchent **le corps** (`hitbox()`) appliquent leur effet (`applyBonus`).
 6. Les poissons et les bulles manquants réapparaissent hors de l'écran.
-7. Les chronos (partie, sprint, x2) diminuent de `dt`, sans descendre sous 0.
+7. Les temps restants des bonus (sprint, x2) diminuent de `dt`, sans descendre sous 0.
 
 ```cpp
 int pointsMultiplier = 1;
@@ -218,7 +218,17 @@ camera_.zoom = camera_.zoom + (wantedZoom - camera_.zoom) * blend;
 
 C'est le rectangle de la vue de la caméra (qui grandit quand on dézoome), agrandi de 60 px de chaque côté : rien n'apparaît sous les yeux du joueur.
 
-En **mode dev**, la fonction renvoie un rectangle vide : aucun point n'est dedans, donc poissons et bulles peuvent apparaître n'importe où, même à l'écran. Sans ça, en dézoomant jusqu'à voir toute la carte, il n'y aurait plus aucune place hors de la vue et la recherche d'une position tournerait à l'infini. En jeu normal, ce cas n'arrive pas : le dézoom est limité au dézoom auto (vue de 1792 × 1008 au maximum, pour un monde de 3840 × 2160).
+En **mode dev**, la fonction renvoie un rectangle vide : aucun point n'est dedans, donc poissons et bulles peuvent apparaître n'importe où, même à l'écran. Sans ça, en dézoomant jusqu'à voir toute la carte, il n'y aurait plus aucune place hors de la vue et la recherche d'une position tournerait à l'infini. En jeu normal, le même problème peut arriver, car l'espadon n'a pas de taille maximale : très gros, le dézoom auto finit par montrer toute la zone d'apparition (à partir d’environ 4,5 fois sa taille de départ, soit environ 440 poissons mangés). `noSpawnArea` le détecte et renvoie aussi un rectangle vide dans ce cas :
+
+```cpp
+const bool coversWidth = area.x <= edge && area.x + area.w >= config::worldWidth - edge;
+const bool coversHeight = area.y <= edge && area.y + area.h >= config::worldHeight - edge;
+if (coversWidth && coversHeight) {
+    return {0.0f, 0.0f, 0.0f, 0.0f};
+}
+```
+
+`edge` vaut `spawnEdgeMargin` (100 px) : poissons et bulles n'apparaissent jamais à moins de 100 px du bord, donc il suffit que la vue couvre cette zone pour qu'il n'y ait plus de place.
 
 ---
 
@@ -249,9 +259,10 @@ velocity_ = velocity_ + (targetVelocity - velocity_) * blend;
 
 ```cpp
 const float margin = config::worldBorderThickness + config::playerWidth * scale_ / 2.0f;
-position_.x = std::clamp(position_.x, margin, config::worldWidth - margin);
+position_.x = keepInside(position_.x, margin, config::worldWidth);
 ```
 
+- `keepInside` fait un `std::clamp`, sauf si l'espadon est devenu plus grand que le monde sur cet axe (il n'a pas de taille maximale) : il n'y a plus de place, donc on le garde au milieu. Sans ce test, `std::clamp` recevrait un minimum plus grand que le maximum, ce qui est interdit.
 - `reset(startPosition)` replace le joueur à la position donnée. C'est `GameSession` qui la tire au hasard à chaque partie.
 - `facing_` retient la dernière direction de nage. Elle sert au dash quand aucune touche n'est appuyée.
 
@@ -270,7 +281,7 @@ if (input.dash && dashCooldownLeft_ <= 0.0f) {
 
 ### Croissance (`grow`)
 
-Chaque poisson mangé augmente `scale_` de 0,8 %, jusqu'à 1,8 au maximum. L'échelle s'applique au sprite, au corps **et** à la mâchoire : un gros espadon mange plus facilement.
+Chaque poisson mangé augmente `scale_` de 0,8 %, **sans limite**. L'échelle s'applique au sprite, au corps **et** à la mâchoire : un gros espadon mange plus facilement.
 
 ### Affichage (`draw`)
 
@@ -384,11 +395,10 @@ Seuls les poissons visibles à l'écran sont dessinés. Leur orientation se calc
 
 ## `BonusField` (`bonuses.hpp/.cpp`)
 
-Les 6 bulles bonus réparties dans le monde.
+Les 6 bulles bonus réparties dans le monde, de deux types.
 
 | Type (`BonusType`) | Bulle | Effet (appliqué par `GameSession`) |
 | --- | --- | --- |
-| `ExtraTime` | `+5` | +5 s au chrono |
 | `Sprint` | `>>` | vitesse × 1,5 pendant 5 s |
 | `DoubleScore` | `x2` | points × 2 pendant 5 s |
 
@@ -400,7 +410,7 @@ Les 6 bulles bonus réparties dans le monde.
 const float bob = std::sin(time_ * bobSpeed + bonus.phase) * bobHeight;
 ```
 
-- **Étiquettes** : les trois textes (`+5`, `>>`, `x2`) sont créés une fois dans le constructeur, puis réutilisés à chaque image. Ils sont dessinés avec `drawCenteredScaled` et le zoom de la caméra, pour rester à l'intérieur de la bulle quand on zoome ou dézoome.
+- **Étiquettes** : les deux textes (`>>`, `x2`) sont créés une fois dans le constructeur, puis réutilisés à chaque image. Ils sont dessinés avec `drawCenteredScaled` et le zoom de la caméra, pour rester à l'intérieur de la bulle quand on zoome ou dézoome.
 
 ---
 
@@ -491,11 +501,11 @@ L'historique des parties, enregistré dans `scoreDB.txt` à côté de l'exécuta
 Un texte à l'écran. Avec SDL_ttf, transformer un texte en image coûte cher. `Text` garde donc la texture et ne la recalcule que si le contenu ou la couleur change réellement :
 
 ```cpp
-timer_.set(std::to_string(seconds));  // appelé à chaque image, mais
-                                      // la texture n'est refaite qu'une fois par seconde
+kills_.set("Kills : " + std::to_string(session.kills()));  // appelé à chaque image, mais
+// la texture n'est refaite que quand le nombre de kills change
 ```
 
-Quatre façons de le dessiner : `draw` (coin haut-gauche), `drawCentered` (centré horizontalement), `drawRightAligned` (aligné à droite, pour le chrono et les colonnes de nombres) et `drawCenteredScaled` (centré sur un point, agrandi ou rétréci, pour un texte posé dans le monde qui doit suivre le zoom, comme les étiquettes des bulles).
+Quatre façons de le dessiner : `draw` (coin haut-gauche), `drawCentered` (centré horizontalement), `drawRightAligned` (aligné à droite, pour les colonnes de nombres) et `drawCenteredScaled` (centré sur un point, agrandi ou rétréci, pour un texte posé dans le monde qui doit suivre le zoom, comme les étiquettes des bulles).
 
 ---
 
@@ -551,18 +561,30 @@ La partie en cours et son interface (HUD).
 - **Clavier** : `readDirection()` lit l'état des touches à chaque tick avec des **scancodes** (position physique). `SDL_SCANCODE_W` correspond donc à Z sur AZERTY et à W sur QWERTY : ZQSD et WASD marchent sans réglage.
 - **Molette** : chaque évènement `SDL_MOUSEWHEEL` est transmis à `session.zoomWithWheel(crans)` (vers le haut = zoom). Si le système inverse le sens de la molette (`SDL_MOUSEWHEEL_FLIPPED`), on inverse le nombre de crans.
 - **Dash** : l'appui sur Espace arrive par un évènement, entre deux ticks. Il est mémorisé dans `dashPressed_`, transmis au tick suivant, puis effacé : un appui déclenche un seul dash. `onEnter` le remet à `false` pour éviter un dash « fantôme » au retour de pause.
-- **Fin de partie** : quand le chrono atteint 0, la partie est enregistrée dans `HighScores` et on passe à `GameOverScreen`.
+- **Pas de fin de partie** ici : sans limite de temps, la partie ne se termine que par HOME dans le menu pause.
 - **Pause** : Échap, ou la fenêtre qui perd le focus.
-- **HUD** : kills et score en haut à gauche, effets actifs dessous (« SPRINT 4 », « SCORE x2 7 »), chrono en haut à droite (rouge sous 10 s), jauge de dash en bas à gauche (blanche en recharge, verte quand le dash est prêt). Pendant le décompte, l'écran est assombri et affiche 3, 2, 1.
-- Les secondes affichées sont arrondies **au-dessus** : il reste 2,3 s, on affiche « 3 ».
+- **HUD** : kills et score en haut à gauche, effets actifs dessous (« SPRINT 4 », « SCORE x2 7 »), jauge de dash en bas à gauche (blanche en recharge, verte quand le dash est prêt). Pendant le décompte, l'écran est assombri et affiche 3, 2, 1.
+- Les secondes affichées (décompte, bonus) sont arrondies **au-dessus** : il reste 2,3 s, on affiche « 3 ».
 
 ### `PausedScreen`
 
-La partie reste dessinée en arrière-plan, figée (elle n'est plus mise à jour), sous un voile sombre. Boutons RESUME, HOME, QUIT ; Échap reprend la partie.
+La partie reste dessinée en arrière-plan, figée (elle n'est plus mise à jour), sous un voile sombre. Échap reprend la partie.
 
-### `GameOverScreen`
+| Bouton | Effet |
+| --- | --- |
+| RESUME | reprend la partie |
+| HOME | **termine la partie** (`endGame`) : le score est enregistré dans le classement, puis retour à l'accueil |
+| QUIT | ferme le jeu |
 
-Affiche le score et les kills de la partie terminée (préparés dans `onEnter`). RE-START relance directement une partie avec le même pseudo.
+Après HOME, la partie ne peut plus être reprise : START passe par la saisie du pseudo, qui appelle `session.start()` et remet tout à zéro.
+
+```cpp
+void PausedScreen::endGame() {
+    const GameSession& session = context_.session;
+    context_.highScores.add({session.playerName(), session.kills(), session.score()});
+    goTo(ScreenId::Welcome);
+}
+```
 
 ### `ScoresScreen`
 
@@ -585,7 +607,7 @@ Le **top 10** des meilleures parties, en tableau.
 
 ## `config.hpp`
 
-Tous les réglages au même endroit, en `inline constexpr` : fenêtre, monde et bordure, pas de temps, durée de partie, vitesse, dash et zone d'apparition du joueur, position et taille de la mâchoire (et `showJawHitbox` pour l'afficher), croissance, caméra (dézoom auto, molette, transition), nombre de poissons et de bulles, effets des bonus, scores, couleurs de l'interface. Pour équilibrer le jeu, c'est le seul fichier à modifier dans la plupart des cas.
+Tous les réglages au même endroit, en `inline constexpr` : fenêtre, monde et bordure, pas de temps, décompte de départ, vitesse, dash et zone d'apparition du joueur, position et taille de la mâchoire (et `showJawHitbox` pour l'afficher), croissance, caméra (dézoom auto, molette, transition), marge d'apparition et nombre de poissons et de bulles, effets des bonus, scores, couleurs de l'interface. Pour équilibrer le jeu, c'est le seul fichier à modifier dans la plupart des cas.
 
 ### Mode dev
 

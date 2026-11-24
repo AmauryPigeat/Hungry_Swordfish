@@ -204,8 +204,9 @@ void BoidSimulation::keepInsideBorder(Boid& boid) {
 }
 
 Boid BoidSimulation::randomBoid(const SDL_FRect& hiddenArea) {
-    std::uniform_real_distribution<float> randomX(edgeMargin, config::worldWidth - edgeMargin);
-    std::uniform_real_distribution<float> randomY(edgeMargin, config::worldHeight - edgeMargin);
+    const float margin = config::spawnEdgeMargin;
+    std::uniform_real_distribution<float> randomX(margin, config::worldWidth - margin);
+    std::uniform_real_distribution<float> randomY(margin, config::worldHeight - margin);
     std::uniform_real_distribution<float> randomVelocity(-3.0f, 3.0f);
     std::uniform_int_distribution<int> randomSpecies(0, static_cast<int>(speciesTable.size()) - 1);
 

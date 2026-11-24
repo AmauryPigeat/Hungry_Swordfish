@@ -28,7 +28,7 @@ private:
     Text hint_;
 };
 
-// La partie en cours, avec le score et le chrono par-dessus.
+// La partie en cours, avec le score et les effets de bonus par-dessus.
 class PlayingScreen : public Screen {
 public:
     explicit PlayingScreen(GameContext& context);
@@ -43,7 +43,6 @@ private:
     bool dashPressed_ = false;  // appui sur Espace pas encore transmis à la partie
     Text kills_;
     Text score_;
-    Text timer_;
     Text countdown_;
     Text sprintEffect_;
     Text doubleScoreEffect_;
@@ -51,6 +50,7 @@ private:
 };
 
 // Pause : la partie reste visible, figée, derrière le menu.
+// HOME termine la partie : le score est enregistré, et START en relancera une nouvelle.
 class PausedScreen : public Screen {
 public:
     explicit PausedScreen(GameContext& context);
@@ -58,19 +58,9 @@ public:
     void draw() override;
 
 private:
+    void endGame();
+
     Text message_;
-};
-
-// Résultat de la partie qui vient de se terminer.
-class GameOverScreen : public Screen {
-public:
-    explicit GameOverScreen(GameContext& context);
-    void onEnter() override;
-    void draw() override;
-
-private:
-    Text score_;
-    Text kills_;
 };
 
 // Classement des meilleures parties, en tableau.

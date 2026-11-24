@@ -9,7 +9,7 @@
 #include <random>
 #include <string>
 
-// Une partie : le joueur, les poissons, les bonus, le chrono et le score.
+// Une partie : le joueur, les poissons, les bonus et le score. Pas de limite de temps.
 // Ne connaît ni les menus ni le clavier, uniquement les règles du jeu.
 class GameSession {
 public:
@@ -28,9 +28,7 @@ public:
     void zoomWithWheel(int steps);
 
     bool inCountdown() const { return countdown_ > 0.0f; }
-    bool isOver() const { return timeLeft_ <= 0.0f; }
     float countdown() const { return countdown_; }
-    float timeLeft() const { return timeLeft_; }
 
     // Temps restant des effets de bonus, 0 s'ils sont inactifs.
     float sprintTimeLeft() const { return sprintTimeLeft_; }
@@ -64,7 +62,6 @@ private:
 
     std::string playerName_;
     float countdown_ = 0.0f;
-    float timeLeft_ = 0.0f;
     float sprintTimeLeft_ = 0.0f;
     float doubleScoreTimeLeft_ = 0.0f;
     int score_ = 0;

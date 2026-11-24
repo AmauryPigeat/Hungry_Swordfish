@@ -21,7 +21,7 @@ public:
     void update(float dt, const PlayerInput& input, float speedMultiplier);
     void draw(SDL_Renderer* renderer, const Camera& camera) const;
 
-    // Fait grossir l'espadon de kills poissons mangés, sans dépasser config::playerMaxScale.
+    // Fait grossir l'espadon de kills poissons mangés, sans limite de taille.
     void grow(int kills);
 
     Vec2 position() const { return position_; }

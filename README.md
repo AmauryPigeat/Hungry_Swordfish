@@ -1,14 +1,14 @@
 # Hungry Swordfish
 
-Petit jeu 2D en C++ / SDL2 : un espadon affamé a 60 secondes pour manger le plus de poissons possible.
+Petit jeu 2D en C++ / SDL2 : un espadon affamé mange le plus de poissons possible, sans limite de temps.
+La partie dure jusqu'à ce qu'on la quitte avec HOME (menu pause) : le score rejoint alors le classement.
 Les poissons nagent en bancs (algorithme des *boids*) et fuient à l'approche du joueur.
-L'espadon grossit un peu à chaque poisson mangé, et peut foncer d'un coup (dash) pour surprendre un banc.
+L'espadon grossit un peu à chaque poisson mangé, sans taille maximale, et peut foncer d'un coup (dash) pour surprendre un banc.
 
 Des bulles bonus flottent dans le monde :
 
 | Bulle | Effet |
 | --- | --- |
-| `+5` | 5 secondes de plus au chrono |
 | `>>` | Sprint : vitesse x1,5 pendant 5 s |
 | `x2` | Points doublés pendant 5 s |
 
@@ -47,7 +47,7 @@ Les scores sont enregistrés dans `scoreDB.txt`, à côté de l'exécutable.
 | --- | --- |
 | `main.cpp` | Lance le jeu, affiche les erreurs de démarrage |
 | `game` | Fenêtre, boucle principale à pas fixe, changement d'écran |
-| `gameSession` | Règles d'une partie : chrono, score, effets des bonus, joueur, poissons, caméra |
+| `gameSession` | Règles d'une partie : score, effets des bonus, joueur, poissons, caméra |
 | `player` | Déplacement, dash, croissance et affichage de l'espadon |
 | `boidSimulation` | Bancs de poissons (boids + grille spatiale) |
 | `bonuses` | Bulles bonus : apparition, ramassage, affichage |

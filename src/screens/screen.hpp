@@ -13,7 +13,7 @@
 #include <vector>
 
 // Les différents écrans du jeu. Quit n'est pas un écran : il ferme le jeu.
-enum class ScreenId { Welcome, NameEntry, Playing, Paused, GameOver, Scores, Quit };
+enum class ScreenId { Welcome, NameEntry, Playing, Paused, Scores, Quit };
 
 // Ce que tous les écrans partagent.
 struct GameContext {

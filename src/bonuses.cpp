@@ -6,7 +6,6 @@
 
 BonusField::BonusField(SDL_Renderer* renderer, const Assets& assets) : assets_(assets) {
     TTF_Font* font = assets.smallFont.get();
-    labels_.emplace_back(renderer, font, config::timeBonusColor, "+5");
     labels_.emplace_back(renderer, font, config::sprintBonusColor, ">>");
     labels_.emplace_back(renderer, font, config::scoreBonusColor, "x2");
     bonuses_.reserve(config::bonusCount);
@@ -63,8 +62,9 @@ void BonusField::draw(SDL_Renderer* renderer, const Camera& camera) const {
 }
 
 Bonus BonusField::randomBonus(const SDL_FRect& hiddenArea) {
-    std::uniform_real_distribution<float> randomX(edgeMargin, config::worldWidth - edgeMargin);
-    std::uniform_real_distribution<float> randomY(edgeMargin, config::worldHeight - edgeMargin);
+    const float margin = config::spawnEdgeMargin;
+    std::uniform_real_distribution<float> randomX(margin, config::worldWidth - margin);
+    std::uniform_real_distribution<float> randomY(margin, config::worldHeight - margin);
     std::uniform_real_distribution<float> randomPhase(0.0f, 6.2831853f);
     std::uniform_int_distribution<int> randomType(0, bonusTypeCount - 1);
 

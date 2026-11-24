@@ -10,7 +10,6 @@ GameSession::GameSession(SDL_Renderer* renderer, const Assets& assets)
 void GameSession::start(const std::string& playerName) {
     playerName_ = playerName;
     countdown_ = config::countdownDuration;
-    timeLeft_ = config::roundDuration;
     sprintTimeLeft_ = 0.0f;
     doubleScoreTimeLeft_ = 0.0f;
     score_ = 0;
@@ -25,10 +24,6 @@ void GameSession::start(const std::string& playerName) {
 }
 
 void GameSession::update(float dt, const PlayerInput& input) {
-    if (isOver()) {
-        return;
-    }
-
     // Les poissons nagent et les bulles flottent déjà pendant le décompte, mais le joueur attend.
     fish_.update(player_.position());
     bonuses_.update(dt);
@@ -61,7 +56,6 @@ void GameSession::update(float dt, const PlayerInput& input) {
     fish_.respawnMissing(noSpawnArea());
     bonuses_.respawnMissing(noSpawnArea());
 
-    timeLeft_ = std::max(0.0f, timeLeft_ - dt);
     sprintTimeLeft_ = std::max(0.0f, sprintTimeLeft_ - dt);
     doubleScoreTimeLeft_ = std::max(0.0f, doubleScoreTimeLeft_ - dt);
 }
@@ -125,7 +119,18 @@ SDL_FRect GameSession::noSpawnArea() const {
 
     constexpr float margin = 60.0f;
     const SDL_FRect view = camera_.view();
-    return {view.x - margin, view.y - margin, view.w + 2 * margin, view.h + 2 * margin};
+    const SDL_FRect area{view.x - margin, view.y - margin, view.w + 2 * margin, view.h + 2 * margin};
+
+    // L'espadon n'a pas de taille max : très gros, le dézoom auto peut montrer toute la zone
+    // où poissons et bulles apparaissent. Il n'y a alors plus aucune place hors de l'écran,
+    // et la recherche d'une position ne finirait jamais : on les laisse apparaître partout.
+    const float edge = config::spawnEdgeMargin;
+    const bool coversWidth = area.x <= edge && area.x + area.w >= config::worldWidth - edge;
+    const bool coversHeight = area.y <= edge && area.y + area.h >= config::worldHeight - edge;
+    if (coversWidth && coversHeight) {
+        return {0.0f, 0.0f, 0.0f, 0.0f};
+    }
+    return area;
 }
 
 void GameSession::zoomWithWheel(int steps) {
@@ -173,9 +178,6 @@ void GameSession::updateCamera(float dt) {
 // Les durées se cumulent : reprendre un bonus encore actif ajoute ses secondes au temps restant.
 void GameSession::applyBonus(BonusType type) {
     switch (type) {
-        case BonusType::ExtraTime:
-            timeLeft_ += config::bonusExtraTime;
-            break;
         case BonusType::Sprint:
             sprintTimeLeft_ += config::bonusEffectDuration;
             break;
