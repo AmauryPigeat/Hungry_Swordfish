@@ -153,8 +153,8 @@ Dans l'ordre :
 1. Les poissons nagent et les bulles flottent, **même pendant le décompte**.
 2. Pendant le décompte, le joueur ne bouge pas, et on s'arrête là.
 3. Le joueur se déplace (plus vite si le sprint est actif), et la caméra le suit.
-4. Les poissons touchés sont mangés : kills, score (doublé si le x2 est actif) et croissance de l'espadon.
-5. Les bulles touchées appliquent leur effet (`applyBonus`).
+4. Les poissons qui touchent **la mâchoire** (`jawHitbox()`) sont mangés : kills, score (doublé si le x2 est actif) et croissance de l'espadon.
+5. Les bulles qui touchent **le corps** (`hitbox()`) appliquent leur effet (`applyBonus`).
 6. Les poissons et les bulles manquants réapparaissent hors de l'écran.
 7. Les chronos (partie, sprint, x2) diminuent de `dt`, sans descendre sous 0.
 
@@ -231,16 +231,44 @@ if (input.dash && dashCooldownLeft_ <= 0.0f) {
 
 ### Croissance (`grow`)
 
-Chaque poisson mangé augmente `scale_` de 0,8 %, jusqu'à 1,8 au maximum. L'échelle s'applique au sprite **et** à la hitbox : un gros espadon mange plus facilement.
+Chaque poisson mangé augmente `scale_` de 0,8 %, jusqu'à 1,8 au maximum. L'échelle s'applique au sprite, au corps **et** à la mâchoire : un gros espadon mange plus facilement.
 
 ### Affichage (`draw`)
 
 - Il utilise l'animation de nage (en mouvement ou pendant un dash) ou d'attente (immobile).
 - L'image est tournée dans le sens de la vitesse. Quand le poisson va vers la gauche (angle > 90°), elle est retournée verticalement pour qu'il ne nage pas sur le dos.
 
-### Hitbox
+### Les deux hitbox : le corps et la mâchoire
 
-C'est un carré centré sur le poisson. Un carré reste valable quelle que soit l'orientation de l'espadon, sans calcul de rotation.
+L'espadon a deux zones de collision :
+
+| Zone | Fonction | Forme | Sert à |
+| --- | --- | --- | --- |
+| Corps | `hitbox()` | carré de 50 px centré sur le poisson (`SDL_FRect`) | ramasser les bulles bonus |
+| Mâchoire | `jawHitbox()` | rectangle de 28 × 14 px à l'avant de la tête, qui tourne avec le poisson (`Quad`) | manger les poissons |
+
+Le corps reste un carré droit : un carré est valable quelle que soit l'orientation, sans calcul de rotation.
+
+La mâchoire, elle, doit suivre le sprite. `jawHitbox()` la calcule en trois étapes :
+
+1. **Position dans l'image** : le décalage depuis le centre du sprite (`jawOffsetX` = 30 px vers l'avant, `jawOffsetY` = 2 px vers le ventre), quand l'image regarde vers la droite. Il est multiplié par `scale_` pour suivre la croissance.
+2. **Retournement** : quand le poisson va vers la gauche, l'image est retournée verticalement avant d'être tournée (voir `draw`). Le ventre change de côté, donc on inverse le décalage vertical.
+3. **Rotation** : on tourne le décalage du même angle que le sprite pour trouver le centre de la mâchoire, puis on construit un rectangle tourné du même angle.
+
+```cpp
+Vec2 offset{config::jawOffsetX * scale_, config::jawOffsetY * scale_};
+if (std::abs(angle_) > 90.0f) {
+    offset.y = -offset.y;
+}
+const Vec2 center = position_ + rotate(offset, angle_);
+return rotatedRect(center, width, height, angle_);
+```
+
+Ainsi, quand le poisson regarde vers le haut ou le bas, la mâchoire est allongée à la verticale. En diagonale, elle est penchée comme le poisson, sans grandir.
+
+### Debug : voir la mâchoire
+
+Avec `config::showJawHitbox = true`, `drawJawHitbox()` dessine la mâchoire en bleu par-dessus le poisson : un remplissage transparent et un contour. SDL ne sait pas remplir un rectangle tourné, alors on le coupe en deux triangles (coins 0-1-2 et 0-2-3) dessinés avec `SDL_RenderGeometry`. Le contour est tracé avec `SDL_RenderDrawLinesF`, en revenant au premier coin pour le fermer.
 
 ---
 
@@ -282,7 +310,8 @@ for (int cell = 0; cell < cellCount; ++cell) cellStart_[cell + 1] += cellStart_[
 cellCursor_ = cellStart_;
 for (std::size_t index = 0; index < boids_.size(); ++index) {
     const int cell = cellOf(boids_[index]);
-    boidsByCell_[cellCursor_[cell]++] = static_cast<int>(index);
+    boidsByCell_[cellCursor_[cell]] = static_cast<int>(index);
+    cellCursor_[cell] += 1;
 }
 ```
 
@@ -290,7 +319,7 @@ Les poissons de la case `c` sont ensuite `boidsByCell_[cellStart_[c]]` à `boids
 
 ### Manger et réapparaître
 
-- `eatTouching(hitbox)` retire les poissons qui touchent la hitbox (`std::erase_if`) et renvoie leur nombre et leurs points.
+- `eatTouching(jaw)` retire les poissons qui touchent la mâchoire tournée (`std::erase_if`) et renvoie leur nombre et leurs points. Le rectangle de chaque poisson est converti en `Quad` (`quadFromRect`) pour être comparé à la mâchoire avec `quadsOverlap`.
 - `respawnMissing(zone)` complète jusqu'à 1000 poissons, en tirant des positions au hasard jusqu'à en trouver une **hors** de la zone visible.
 - Chaque poisson démarre à une étape d'animation aléatoire, pour qu'ils ne battent pas tous des nageoires en même temps.
 
@@ -337,9 +366,43 @@ Les petits outils mathématiques utilisés partout :
 
 - `Vec2` : vecteur 2D avec `+`, `-`, `* float` et `length()` ;
 - `angleInDegrees(v)` : orientation d'un vecteur, dans le sens attendu par `SDL_RenderCopyEx` ;
-- `overlaps(a, b)` : est-ce que deux rectangles se touchent (collisions, objets visibles à l'écran) ;
+- `dot(a, b)` : produit scalaire de deux vecteurs ;
+- `rotate(v, angle)` : tourne un vecteur d'un angle en degrés, dans le même sens que SDL ;
+- `overlaps(a, b)` : est-ce que deux rectangles droits (`SDL_FRect`) se touchent (bulles bonus, objets visibles à l'écran) ;
 - `contains(rect, point)` : est-ce qu'un point est dans un rectangle (zone d'apparition) ;
-- `centeredRect(centre, w, h)` : rectangle centré sur un point.
+- `centeredRect(centre, w, h)` : rectangle droit centré sur un point.
+
+### Rectangles tournés : `Quad`
+
+Un `SDL_FRect` est toujours droit : il ne peut pas tourner. Pour la mâchoire, on utilise donc `Quad`, un rectangle décrit par ses 4 coins dans l'ordre du tour.
+
+```cpp
+struct Quad {
+    Vec2 corners[4];
+};
+```
+
+- `rotatedRect(centre, w, h, angle)` construit un rectangle tourné : on part des 4 coins d'un rectangle droit centré sur l'origine, on les tourne avec `rotate`, puis on les déplace au centre voulu.
+- `quadFromRect(rect)` transforme un `SDL_FRect` en `Quad` (même rectangle, non tourné).
+
+### Collision entre deux `Quad` : `quadsOverlap`
+
+Le test utilise le **théorème des axes séparateurs**. On imagine qu'on éclaire les deux rectangles et qu'on regarde leur « ombre » sur un axe. Si, sur un axe, les deux ombres ne se chevauchent pas, c'est qu'il y a un espace entre les rectangles : ils ne se touchent pas.
+
+Pour deux rectangles, il suffit de tester **4 axes** : deux côtés de chaque rectangle (les deux autres côtés leur sont parallèles). Si les ombres se chevauchent sur les 4 axes, les rectangles se touchent.
+
+```cpp
+for (int i = 0; i < 4; ++i) {
+    projectOnAxis(a, axes[i], minA, maxA);  // ombre de a sur l'axe
+    projectOnAxis(b, axes[i], minB, maxB);  // ombre de b sur l'axe
+    if (maxA < minB || maxB < minA) {
+        return false;  // espace trouvé entre les deux
+    }
+}
+return true;
+```
+
+`projectOnAxis` calcule l'ombre d'un `Quad` : il fait le produit scalaire de chaque coin avec l'axe, et garde la plus petite et la plus grande valeur.
 
 ---
 
@@ -452,6 +515,6 @@ Le **top 10** des meilleures parties, en tableau.
 
 ## `config.hpp`
 
-Tous les réglages au même endroit, en `inline constexpr` : fenêtre, monde, pas de temps, durée de partie, vitesse et dash du joueur, croissance, nombre de poissons et de bulles, effets des bonus, scores, couleurs de l'interface. Pour équilibrer le jeu, c'est le seul fichier à modifier dans la plupart des cas.
+Tous les réglages au même endroit, en `inline constexpr` : fenêtre, monde, pas de temps, durée de partie, vitesse et dash du joueur, position et taille de la mâchoire (et `showJawHitbox` pour l'afficher), croissance, nombre de poissons et de bulles, effets des bonus, scores, couleurs de l'interface. Pour équilibrer le jeu, c'est le seul fichier à modifier dans la plupart des cas.
 
 Les réglages fins du comportement des boids (distances, forces) sont, eux, des constantes privées de `BoidSimulation`, car ils ne concernent que cette classe.

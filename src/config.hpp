@@ -42,7 +42,7 @@ inline constexpr float jawOffsetX = 30.0f;  // vers l'avant
 inline constexpr float jawOffsetY = 2.0f;   // vers le ventre
 inline constexpr float jawHitboxWidth = 28.0f;   // le long du poisson
 inline constexpr float jawHitboxHeight = 14.0f;  // en travers du poisson
-inline constexpr bool showJawHitbox = true;  // debug : dessine la mâchoire en bleu
+inline constexpr bool showJawHitbox = false;  // debug : dessine la mâchoire en bleu
 
 // Dash (touche Espace) : courte poussée, puis temps de recharge
 inline constexpr float dashSpeedMultiplier = 2.5f;
